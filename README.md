@@ -152,10 +152,10 @@ npm run build
 
 | 名字 | 值 |
 | --- | --- |
-| `SERVER_HOST` | VPS 的公网 IP |
+| `SERVER_HOST` | VPS 的**真实公网 IP**。**不要填域名**——`blog.luminestella.top` 解析到的是 Cloudflare 的 IP，Cloudflare 只代理 HTTP(S)，不转发 SSH |
 | `SERVER_PORT` | SSH 端口，一般是 `22` |
-| `SERVER_USER` | 登录用户名 |
-| `SSH_PRIVATE_KEY` | **私钥全文**，从 `-----BEGIN` 到 `-----END` 整段都要 |
+| `SERVER_USER` | 登录用户名，要对上面那个部署目录有写权限 |
+| `SSH_PRIVATE_KEY` | **私钥全文**，从 `-----BEGIN` 到 `-----END` 整段都要，而且不能带口令 |
 
 没有密钥的话，**在 VPS 上**跑这几行现生成一对（不要用你平时登录的那把私钥）：
 
@@ -275,7 +275,11 @@ git push
 
 **Actions 卡在「检查一下部署路径改过了没」。** `DEPLOY_PATH` 被改成了占位值或者空的，见 6.2。
 
-**Actions 在「准备 SSH」或「上传到 VPS」这一步失败。** 4 个 secret 有没配好的，见 6.1；或者 `DEPLOY_PATH` 指的目录在服务器上不存在（先在 1Panel 里把网站建出来）。
+**Actions 在「准备 SSH」「试一下能不能登录」或「上传到 VPS」这一步失败。** 不用去猜那个 exit code，点进那一步看红色的 `Error:` 那几行——流程里每个前置检查失败都会写清楚原因和怎么改（哪个 secret 空着、私钥读不出来、端口不通、公钥没进 `authorized_keys`、目录不存在或不可写、服务器上没装 rsync）。
+
+其中最容易搞错的两个：`SERVER_HOST` 填成了域名（域名指向 Cloudflare，SSH 过不去，要填 VPS 真实 IP），以及公钥进错了用户的家目录（`SERVER_USER` 填的是谁，公钥就得在**那个**用户的 `~/.ssh/authorized_keys` 里）。「准备 SSH」那一步会把这次用的公钥打印出来，拿它跟服务器上的 `authorized_keys` 对一下最快。
+
+**`Permission denied (publickey)` / exit code 255。** 这是「网络通了、但密钥没认过」的意思，跟 IP、端口、防火墙都无关了，只在这三处找：公钥在不在对的用户的 `authorized_keys` 里、`SERVER_USER` 有没有写错、服务器上 `chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys` 有没有做。
 
 **新日记没出现。** 三个地方检查：文件在 `src/content/diary/` 里吗；后缀是 `.md` 吗；信息卡里有没有 `draft: true`。
 

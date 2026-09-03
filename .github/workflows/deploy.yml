@@ -6,12 +6,18 @@
 #   3. 锁 Node 版本 + 开 npm 缓存，构建结果可复现、也快一点
 #
 # 需要在仓库里配 4 个 secret：Settings → Secrets and variables → Actions
-#   SERVER_HOST      VPS 公网 IP
+#   SERVER_HOST      VPS 的**真实公网 IP**。不要填域名 —— blog.luminestella.top
+#                    解析到的是 Cloudflare 的 IP，而 Cloudflare 只代理 HTTP(S)，
+#                    不转发 SSH，填域名必然连不上。
 #   SERVER_PORT      SSH 端口，一般是 22
-#   SERVER_USER      登录用户名
-#   SSH_PRIVATE_KEY  私钥全文，从 -----BEGIN 到 -----END 那一整段都要
+#   SERVER_USER      登录用户名（要对下面 DEPLOY_PATH 那个目录有写权限）
+#   SSH_PRIVATE_KEY  私钥全文，从 -----BEGIN 到 -----END 那一整段都要，而且不能带口令
 #
 # 换域名的话，下面的 DEPLOY_PATH 也要跟着改。
+#
+# 上传失败的时候不用去猜 exit code：下面每个前置检查失败都会自己说明原因
+#（哪个 secret 没配、私钥读不出来、端口不通、公钥没进 authorized_keys、
+#  目录不存在、没有写权限、服务器上没装 rsync）。
 
 name: 构建并部署博客
 
@@ -39,11 +45,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # checkout / setup-node 用 v6 而不是 v4：v4 是给已经废弃的 Node 20 打包的，
+      # runner 现在会强制它们跑在 Node 24 上，并且每次都打一条 deprecation 警告。
+      # 那条警告只是噪音，不影响构建 —— 但没必要一直看着。
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: 装 Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
@@ -64,6 +73,25 @@ jobs:
               ;;
           esac
 
+      - name: 检查 4 个 secret 配没配
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          missing=""
+          if [ -z "$SERVER_HOST" ]; then missing="$missing SERVER_HOST"; fi
+          if [ -z "$SERVER_PORT" ]; then missing="$missing SERVER_PORT"; fi
+          if [ -z "$SERVER_USER" ]; then missing="$missing SERVER_USER"; fi
+          if [ -z "$SSH_PRIVATE_KEY" ]; then missing="$missing SSH_PRIVATE_KEY"; fi
+          if [ -n "$missing" ]; then
+            echo "::error::这几个 secret 是空的，或者名字打错了：$missing"
+            echo "::error::去仓库 Settings → Secrets and variables → Actions → New repository secret 补上，名字必须一模一样。"
+            exit 1
+          fi
+          echo "4 个 secret 都在。"
+
       - name: 准备 SSH
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -72,10 +100,77 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+
+          # tr -d '\r'：私钥大概率是从 Windows 上复制粘贴进 secret 的，很可能夹着 \r，
+          # OpenSSH 会直接说格式非法。正常私钥里不该有 \r，删掉是安全的。
+          printf '%s\n' "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+
+          # 私钥先自己验一遍。-P "" 是为了让「带口令的私钥」当场报错，而不是卡住等人输入。
+          if ! ssh-keygen -y -P "" -f ~/.ssh/deploy_key > ~/.ssh/deploy_key.pub 2>/tmp/keyerr; then
+            echo "::error::SSH_PRIVATE_KEY 里的私钥读不出来。常见原因两个："
+            echo "::error::1) 没复制全 —— -----BEGIN 和 -----END 那两行也算私钥的一部分，都要。"
+            echo "::error::2) 这把私钥设了口令 —— CI 没法交互输入，重新生成时 -N \"\" 把口令留空。"
+            sed 's/^/  ssh-keygen: /' /tmp/keyerr
+            exit 1
+          fi
+          echo "私钥能读。它对应的公钥是下面这行（公钥不是秘密，可以公开）："
+          cat ~/.ssh/deploy_key.pub
+          echo "→ 登录用户的 ~/.ssh/authorized_keys 里必须有这一行，登不上的时候先对这个。"
+
           # 记下服务器指纹，这样下一步可以开着严格校验，不用 StrictHostKeyChecking=no
-          ssh-keyscan -p "$SERVER_PORT" -H "$SERVER_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          ssh-keyscan -p "$SERVER_PORT" -H "$SERVER_HOST" > ~/.ssh/known_hosts 2>/tmp/scanerr || true
+          if [ ! -s ~/.ssh/known_hosts ]; then
+            echo "::error::连指纹都取不到，说明网络层就没通，还没走到密钥那一步。按可能性从高到低查："
+            echo "::error::1) SERVER_HOST 填成了域名。blog.luminestella.top 解析到的是 Cloudflare 的 IP，"
+            echo "::error::   Cloudflare 只代理 HTTP(S)，不转发 SSH。这里要填 VPS 的真实公网 IP。"
+            echo "::error::2) SERVER_PORT 不对（有些装机脚本会把 SSH 挪到别的端口）。"
+            echo "::error::3) 云厂商安全组 / 服务器防火墙没把这个端口对外放开。"
+            sed 's/^/  ssh-keyscan: /' /tmp/scanerr
+            exit 1
+          fi
+          echo "拿到服务器指纹了，端口是通的。"
+
+      - name: 试一下能不能登录、目录在不在
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+        run: |
+          # 注意用 $HOME 而不是 ~：波浪号放进变量里是不会被展开的。
+          SSH="ssh -i $HOME/.ssh/deploy_key -p ${SERVER_PORT} -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=yes"
+          TARGET="${SERVER_USER}@${SERVER_HOST}"
+
+          if ! $SSH "$TARGET" true 2>/tmp/ssherr; then
+            echo "::error::端口是通的，但这把密钥登不上去 —— 问题在密钥或用户名这一环："
+            echo "::error::1) 公钥没进 authorized_keys，或者进错了用户的家目录。SERVER_USER 填的是谁，"
+            echo "::error::   公钥就得在那个用户的 ~/.ssh/authorized_keys 里（上一步已经把公钥打出来了，对一下）。"
+            echo "::error::2) 权限太开放，OpenSSH 会直接拒绝：chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys"
+            echo "::error::3) SERVER_USER 写错了。"
+            sed 's/^/  ssh: /' /tmp/ssherr
+            exit 1
+          fi
+          echo "登录成功。"
+
+          # rsync 不会帮你创建目标目录的父目录，先确认它在。
+          if ! $SSH "$TARGET" "test -d '${DEPLOY_PATH}'"; then
+            echo "::error::能登录，但服务器上没有 ${DEPLOY_PATH} 这个目录。"
+            echo "::error::先在 1Panel 里把这个网站建出来；已经建了的话，去「网站 → 配置文件」核对那行 root，"
+            echo "::error::再把本文件 env 里的 DEPLOY_PATH 改成跟它一致。"
+            exit 1
+          fi
+
+          if ! $SSH "$TARGET" "test -w '${DEPLOY_PATH}'"; then
+            echo "::error::目录在，但登录用户对 ${DEPLOY_PATH} 没有写权限。"
+            echo "::error::要么把 SERVER_USER 换成有权限的用户，要么在服务器上把这个目录的属主改成它。"
+            exit 1
+          fi
+
+          if ! $SSH "$TARGET" "command -v rsync >/dev/null 2>&1"; then
+            echo "::error::服务器上没装 rsync —— 上传靠的就是它。Ubuntu/Debian：apt install -y rsync"
+            exit 1
+          fi
+          echo "目录存在、可写，rsync 也在。可以上传了。"
 
       - name: 上传到 VPS
         env:
@@ -85,9 +180,9 @@ jobs:
         run: |
           # dist 后面那个斜杠很重要：传的是 dist 里的内容，不是 dist 这个目录本身
           rsync -az --delete \
-            -e "ssh -i ~/.ssh/deploy_key -p ${SERVER_PORT} -o StrictHostKeyChecking=yes" \
+            -e "ssh -i $HOME/.ssh/deploy_key -p ${SERVER_PORT} -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=yes" \
             dist/ "${SERVER_USER}@${SERVER_HOST}:${DEPLOY_PATH}/"
 
       - name: 收尾
         if: always()
-        run: rm -f ~/.ssh/deploy_key
+        run: rm -f ~/.ssh/deploy_key ~/.ssh/deploy_key.pub
