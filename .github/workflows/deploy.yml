@@ -106,12 +106,44 @@ jobs:
           printf '%s\n' "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
 
-          # 私钥先自己验一遍。-P "" 是为了让「带口令的私钥」当场报错，而不是卡住等人输入。
-          if ! ssh-keygen -y -P "" -f ~/.ssh/deploy_key > ~/.ssh/deploy_key.pub 2>/tmp/keyerr; then
-            echo "::error::SSH_PRIVATE_KEY 里的私钥读不出来。常见原因两个："
-            echo "::error::1) 没复制全 —— -----BEGIN 和 -----END 那两行也算私钥的一部分，都要。"
-            echo "::error::2) 这把私钥设了口令 —— CI 没法交互输入，重新生成时 -N \"\" 把口令留空。"
-            sed 's/^/  ssh-keygen: /' /tmp/keyerr
+          # 先看形状。这几个判断只看开头结尾和行数，不会把私钥内容打出来，
+          # 但足够指出到底是哪一种粘错 —— 光说「读不出来」帮不上忙。
+          lines=$(grep -c '' ~/.ssh/deploy_key)
+
+          if ! grep -q -- '-----BEGIN' ~/.ssh/deploy_key; then
+            first_word=$(head -1 ~/.ssh/deploy_key | cut -d' ' -f1)
+            case "$first_word" in
+              ssh-rsa | ssh-ed25519 | ecdsa-sha2-*)
+                echo "::error::这个 secret 里放的是**公钥**（开头是 ${first_word}），不是私钥。"
+                echo "::error::公钥是带 .pub 后缀那个文件，它该放到服务器的 ~/.ssh/authorized_keys 里；"
+                echo "::error::GitHub 这个 secret 要的是**没有 .pub 后缀**的那个文件（cat ~/.ssh/blog_deploy）。"
+                ;;
+              *)
+                echo "::error::这个 secret 里找不到 -----BEGIN 那一行，内容不像是一个私钥文件。"
+                echo "::error::在服务器上跑 cat ~/.ssh/blog_deploy，把输出整段复制进来。"
+                ;;
+            esac
+            exit 1
+          fi
+
+          if ! grep -q -- '-----END' ~/.ssh/deploy_key; then
+            echo "::error::有 -----BEGIN 但没有 -----END，私钥被截断了 —— -----END 那一行也要复制进去。"
+            exit 1
+          fi
+
+          if [ "$lines" -lt 4 ]; then
+            echo "::error::私钥只有 ${lines} 行，换行丢了、被拼成了一行。私钥必须保持原样的多行结构。"
+            echo "::error::从网页终端（1Panel 的终端、云厂商控制台）里复制多行文本经常出这个问题。"
+            exit 1
+          fi
+
+          # 形状对了，再让 ssh-keygen 真读一遍。
+          # -P "" 加上 </dev/null：带口令的私钥当场失败，而不是卡在等人输入口令。
+          if ! ssh-keygen -y -P "" -f ~/.ssh/deploy_key < /dev/null > ~/.ssh/deploy_key.pub 2>/tmp/keyerr; then
+            echo "::error::私钥的头尾都在（共 ${lines} 行），但 OpenSSH 读不出来。两种情况："
+            echo "::error::1) 中间的内容缺了行 / 多了空格 —— 复制的时候被网页终端折行或截断了。"
+            echo "::error::2) 这把私钥设了口令 —— CI 没法交互输入，重新生成时用 -N \"\" 把口令留空。"
+            sed 's/^/::error::ssh-keygen: /' /tmp/keyerr
             exit 1
           fi
           echo "私钥能读。它对应的公钥是下面这行（公钥不是秘密，可以公开）："
