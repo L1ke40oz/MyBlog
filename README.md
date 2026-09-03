@@ -188,6 +188,8 @@ DEPLOY_PATH: /opt/1panel/www/sites/blog.luminestella.top/index
 
 路径必须对：上传用的是 `rsync --delete`，写错会删掉那个目录里原有的东西。留着占位值 `example.com` 或者留空的话，流程会故意失败并提示你。
 
+> **第一次部署前先看一眼那个目录。** `rsync --delete` 会把它变成 `dist/` 的精确镜像——`dist/` 里没有的文件会被删掉。在 1Panel 的文件管理里翻一下，确认里面没有你想留着的东西（默认的占位 index.html 删了没关系）。
+
 以后换域名，这里和 `astro.config.mjs` 顶部的 `SITE_URL` 都要跟着改。
 
 ### 6.3 配 OpenResty
@@ -195,6 +197,22 @@ DEPLOY_PATH: /opt/1panel/www/sites/blog.luminestella.top/index
 1Panel → 网站 → 点你的域名 → 配置文件，把 `openresty/blog.conf` 的内容贴进已有的 `server { ... }` 里面。
 
 **如果里面已经有一个 `location / { ... }`，先删掉它**——nginx 有两个 `location /` 会直接起不来。文件开头的注释里写了细节，贴之前扫一眼。
+
+改完先测再重载，别直接 reload（1Panel 点保存其实也会先测，报错会弹出来）：
+
+```bash
+openresty -t && openresty -s reload
+```
+
+### 6.3b Cloudflare（这个域名走了 CF 代理，有两个坑）
+
+`blog.luminestella.top` 解析到的是 Cloudflare 的 IP，也就是这条 DNS 记录开着橙色云朵。这带来两个和证书无关但症状很像「网站坏了」的问题：
+
+**SSL/TLS 模式必须是 Full 或 Full (strict)，不能是 Flexible。** 在 Cloudflare 面板 → SSL/TLS → Overview 里看。Flexible 的意思是 Cloudflare 用 HTTP 回源，而 1Panel 一般会配 HTTP → HTTPS 跳转，两个一撞就是无限重定向，浏览器报 `ERR_TOO_MANY_REDIRECTS`。
+
+**1Panel 申请 Let's Encrypt 证书可能失败**，因为验证请求要穿过 Cloudflare 代理。失败了有三条路：把橙云临时点成灰云、签完再点回来；或者用 Cloudflare 的 Origin Certificate；或者在 1Panel 里改用 DNS-01 验证 + Cloudflare API Token。访客看到的 HTTPS 本来就是 Cloudflare 提供的，源站证书只影响 Cloudflare 到你服务器这一段。
+
+发了新日记不用手动清 Cloudflare 缓存：HTML 带着 `no-cache`，Cloudflare 默认也不缓存 HTML。万一真看到旧内容，去 Cloudflare 面板 Purge Everything。
 
 ### 6.4 日常推送
 
