@@ -194,15 +194,19 @@ DEPLOY_PATH: /www/sites/blog.luminestella.top/index
 
 ### 6.3 配 OpenResty
 
-1Panel → 网站 → 点你的域名 → 配置文件，把 `openresty/blog.conf` 的内容贴进已有的 `server { ... }` 里面。
+1Panel → 网站 → 点你的域名 → 配置文件。
 
-**如果里面已经有一个 `location / { ... }`，先删掉它**——nginx 有两个 `location /` 会直接起不来。文件开头的注释里写了细节，贴之前扫一眼。
+**最省事的做法**：把编辑框里的内容全选删掉，贴上 `openresty/1panel-合并后的完整配置.conf`。那个文件就是「你现在这份配置 + 博客需要的几段」，已经合好了，原来的每一行都在。
+
+想自己动手合的话，参考文件是 `openresty/blog.conf`，往已有的 `server { ... }` **里面**追加。两个坑写在它的文件头注释里：已有的 `location /` 必须先删掉（nginx 有两个会直接起不来，你这份配置里没有，所以不用删）；`index` 和 `error_page 404` 面板已经有了，别贴重复的；`charset utf-8;` 重复会让 nginx 起不来，所以那行一直是注释状态。
 
 改完先测再重载，别直接 reload（1Panel 点保存其实也会先测，报错会弹出来）：
 
 ```bash
 openresty -t && openresty -s reload
 ```
+
+以后在 1Panel 里申请证书、开 HTTPS 跳转，面板有可能重新生成这个配置文件，把加进去的那几段冲掉。改完证书回来看一眼还在不在。
 
 ### 6.3b Cloudflare（这个域名走了 CF 代理）
 
@@ -259,6 +263,7 @@ git push
 | `src/components/` | 书桌、导航、灯箱、留言板这些零件 |
 | `src/pages/` | 每个网址对应一个文件 |
 | `openresty/blog.conf` | 服务器配置参考，贴到 1Panel 里用的 |
+| `openresty/1panel-合并后的完整配置.conf` | 上面那份和 1Panel 生成的配置合好的完整版，可以整段替换 |
 | `.github/workflows/` | 自动部署的流程 |
 | `dist/` | 构建产物，自动生成的，不用管也不用提交 |
 
