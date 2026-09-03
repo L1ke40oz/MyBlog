@@ -181,14 +181,14 @@ command -v rsync || apt install -y rsync
 `.github/workflows/deploy.yml` 开头已经填好了：
 
 ```yaml
-DEPLOY_PATH: /opt/1panel/www/sites/blog.luminestella.top/index
+DEPLOY_PATH: /www/sites/blog.luminestella.top/index
 ```
 
-这是 1Panel 的默认目录结构（目录名 = 建站时填的主域名）。**在 1Panel「网站 → 点进这个站 → 目录」里对一眼**，不一样就照着实际路径改这里。
+这个值必须和 nginx 配置里那行 `root` 一模一样。在 1Panel「网站 → 点进这个站 → 配置文件」里能看到。（1Panel 不同版本的路径不一样，有的是 `/www/sites/...`，有的是 `/opt/1panel/www/sites/...`，别照别人的抄。）
 
 路径必须对：上传用的是 `rsync --delete`，写错会删掉那个目录里原有的东西。留着占位值 `example.com` 或者留空的话，流程会故意失败并提示你。
 
-> **第一次部署前先看一眼那个目录。** `rsync --delete` 会把它变成 `dist/` 的精确镜像——`dist/` 里没有的文件会被删掉。在 1Panel 的文件管理里翻一下，确认里面没有你想留着的东西（默认的占位 index.html 删了没关系）。
+> **第一次部署前先看一眼那个目录。** `rsync --delete` 会把它变成 `dist/` 的精确镜像——`dist/` 里没有的文件会被删掉。在 1Panel 的文件管理里翻一下，确认里面没有你想留着的东西（默认的占位 index.html 删了没关系）。日志在隔壁 `log/` 目录，不受影响。
 
 以后换域名，这里和 `astro.config.mjs` 顶部的 `SITE_URL` 都要跟着改。
 
@@ -204,15 +204,21 @@ DEPLOY_PATH: /opt/1panel/www/sites/blog.luminestella.top/index
 openresty -t && openresty -s reload
 ```
 
-### 6.3b Cloudflare（这个域名走了 CF 代理，有两个坑）
+### 6.3b Cloudflare（这个域名走了 CF 代理）
 
-`blog.luminestella.top` 解析到的是 Cloudflare 的 IP，也就是这条 DNS 记录开着橙色云朵。这带来两个和证书无关但症状很像「网站坏了」的问题：
+`blog.luminestella.top` 解析到的是 Cloudflare 的 IP，也就是这条 DNS 记录开着橙色云朵。访客看到的 HTTPS 是 Cloudflare 给的，跟服务器上有没有证书是两件事。
 
-**SSL/TLS 模式必须是 Full 或 Full (strict)，不能是 Flexible。** 在 Cloudflare 面板 → SSL/TLS → Overview 里看。Flexible 的意思是 Cloudflare 用 HTTP 回源，而 1Panel 一般会配 HTTP → HTTPS 跳转，两个一撞就是无限重定向，浏览器报 `ERR_TOO_MANY_REDIRECTS`。
+**现在别动 SSL/TLS 模式。** 1Panel 生成的配置里只有 `listen 80`，没有 `listen 443`，也就是服务器这边根本没开 HTTPS。这种情况下 Cloudflare 只能用 **Flexible**（HTTP 回源），站是通的；这时候手动改成 Full，Cloudflare 会去连服务器的 443 端口，连不上，整站变成 521 / 522 错误页。
 
-**1Panel 申请 Let's Encrypt 证书可能失败**，因为验证请求要穿过 Cloudflare 代理。失败了有三条路：把橙云临时点成灰云、签完再点回来；或者用 Cloudflare 的 Origin Certificate；或者在 1Panel 里改用 DNS-01 验证 + Cloudflare API Token。访客看到的 HTTPS 本来就是 Cloudflare 提供的，源站证书只影响 Cloudflare 到你服务器这一段。
+想升级成全程加密（推荐，但不着急），顺序不能颠倒：
 
-发了新日记不用手动清 Cloudflare 缓存：HTML 带着 `no-cache`，Cloudflare 默认也不缓存 HTML。万一真看到旧内容，去 Cloudflare 面板 Purge Everything。
+1. 先让服务器有 HTTPS。最省事的是用 **Cloudflare Origin Certificate**（CF 面板 → SSL/TLS → Origin Server → Create Certificate，有效期 15 年，不用续期），把证书和私钥贴进 1Panel 的网站 HTTPS 设置里。也可以用 1Panel 申请 Let's Encrypt，但验证请求要穿过 CF 代理，可能失败——失败就把橙云临时点成灰云、签完再点回来，或者改用 DNS-01 验证配一个 Cloudflare API Token。
+2. 服务器 443 能通了，再把 CF 的 SSL/TLS 改成 **Full**（用 Origin Certificate 的话可以直接上 Full (strict)）。
+3. 最后才在 1Panel 里打开 HTTP → HTTPS 跳转。**顺序反了就是无限重定向**：CF 用 HTTP 回源，服务器把它跳到 HTTPS，CF 再用 HTTP 回源……浏览器报 `ERR_TOO_MANY_REDIRECTS`。这个症状看起来像「网站坏了」，跟证书一点也不像，很容易查错方向。
+
+发了新日记不用手动清 CF 缓存：HTML 带着 `no-cache`，Cloudflare 默认也不缓存 HTML。万一真看到旧内容，去 CF 面板 Purge Everything。
+
+另外，`access.log` 里记的都是 Cloudflare 的中转 IP，不是访客的真实 IP。不看统计的话不用管。
 
 ### 6.4 日常推送
 

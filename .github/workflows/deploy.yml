@@ -29,9 +29,10 @@ permissions:
   contents: read # 只需要读代码，不给多余权限
 
 env:
-  # 1Panel 里这个网站的根目录。目录名就是你建站时填的主域名。
-  # 在 1Panel「网站 → 点进这个站 → 目录」里能看到实际路径，不一样就照着改这里。
-  DEPLOY_PATH: /opt/1panel/www/sites/blog.luminestella.top/index
+  # 1Panel 里这个网站的根目录，跟 nginx 配置里的 root 必须一模一样。
+  # （注意是 /www/sites/... 而不是 /opt/1panel/www/sites/...，1Panel 的版本不同会不一样，
+  #   以「网站 → 点进这个站 → 配置文件」里那行 root 为准。）
+  DEPLOY_PATH: /www/sites/blog.luminestella.top/index
 
 jobs:
   deploy:
