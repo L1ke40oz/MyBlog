@@ -1,0 +1,92 @@
+# 推到 main 就自动构建 + 上传到 VPS。
+#
+# 跟开发文档里那份 Vue 的比，改了三处：
+#   1. 用 SSH 密钥而不是 root 密码（密码放在 GitHub 里风险高，密钥可以随时单独吊销）
+#   2. 用 rsync --delete 而不是 scp（删掉的日记，线上会真的消失；scp 只会往上堆）
+#   3. 锁 Node 版本 + 开 npm 缓存，构建结果可复现、也快一点
+#
+# 需要在仓库里配 4 个 secret：Settings → Secrets and variables → Actions
+#   SERVER_HOST      VPS 公网 IP
+#   SERVER_PORT      SSH 端口，一般是 22
+#   SERVER_USER      登录用户名
+#   SSH_PRIVATE_KEY  私钥全文，从 -----BEGIN 到 -----END 那一整段都要
+#
+# 换域名的话，下面的 DEPLOY_PATH 也要跟着改。
+
+name: 构建并部署博客
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # 也允许在 Actions 页面上手动点一次
+
+# 同一分支上只跑最后一次，避免两次部署撞在一起把目录写坏
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read # 只需要读代码，不给多余权限
+
+env:
+  # 1Panel 里这个网站的根目录。目录名就是你建站时填的主域名。
+  # 在 1Panel「网站 → 点进这个站 → 目录」里能看到实际路径，不一样就照着改这里。
+  DEPLOY_PATH: /opt/1panel/www/sites/blog.luminestella.top/index
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 装 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 装依赖
+        run: npm ci
+
+      - name: 构建
+        run: npm run build
+
+      - name: 检查一下部署路径改过了没
+        run: |
+          case "${DEPLOY_PATH}" in
+            "" | *example.com*)
+              echo "::error::DEPLOY_PATH 还是占位的 example.com，先在 .github/workflows/deploy.yml 里改成你的域名再推。"
+              echo "::error::这一步是故意卡住的 —— 路径写错的话，下面的 rsync --delete 会删错东西。"
+              exit 1
+              ;;
+          esac
+
+      - name: 准备 SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          # 记下服务器指纹，这样下一步可以开着严格校验，不用 StrictHostKeyChecking=no
+          ssh-keyscan -p "$SERVER_PORT" -H "$SERVER_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: 上传到 VPS
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+        run: |
+          # dist 后面那个斜杠很重要：传的是 dist 里的内容，不是 dist 这个目录本身
+          rsync -az --delete \
+            -e "ssh -i ~/.ssh/deploy_key -p ${SERVER_PORT} -o StrictHostKeyChecking=yes" \
+            dist/ "${SERVER_USER}@${SERVER_HOST}:${DEPLOY_PATH}/"
+
+      - name: 收尾
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

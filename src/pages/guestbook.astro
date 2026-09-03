@@ -1,0 +1,46 @@
+---
+import PageLayout from "../layouts/PageLayout.astro";
+import Giscus from "../components/Giscus.astro";
+---
+
+<PageLayout
+  title="留言板"
+  kicker="GUESTBOOK"
+  heading="留言板"
+  sub="路过留一句吧。只有这一页有留言，文章底下是干净的。"
+  narrow
+>
+  <div class="note paper">
+    <p>
+      留言需要一个 <strong>GitHub 账号</strong>。
+      这是我偷懒的代价：留言直接存在这个博客仓库的 Discussions 里，
+      我就不用开数据库、也不用管垃圾留言了。
+    </p>
+    <p class="note__soft">
+      没有 GitHub 账号也没关系，看看就好；实在想说什么，
+      「关于」页面上有别的联系方式。
+    </p>
+  </div>
+
+  <Giscus />
+</PageLayout>
+
+<style>
+  .note {
+    padding: clamp(var(--space-6), 5vw, var(--space-8));
+  }
+
+  .note p + p {
+    margin-top: var(--space-4);
+  }
+
+  .note strong {
+    color: var(--ink-900);
+    font-weight: 600;
+  }
+
+  .note__soft {
+    font-size: var(--text-sm);
+    color: var(--ink-400);
+  }
+</style>

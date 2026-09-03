@@ -1,0 +1,59 @@
+---
+import { site, links } from "../config";
+const year = new Date().getFullYear();
+---
+
+<footer class="foot">
+  <div class="shell foot__inner">
+    <p class="foot__left">
+      <a href="/">{site.name}</a>
+      <span class="foot__dot">·</span>
+      <span>© {year} {site.author}</span>
+    </p>
+    <p class="foot__right">
+      {
+        links.map((l) => (
+          <a href={l.href} target="_blank" rel="noopener noreferrer">
+            {l.label}
+          </a>
+        ))
+      }
+    </p>
+  </div>
+</footer>
+
+<style>
+  .foot {
+    margin-top: var(--space-24);
+    padding-block: var(--space-8);
+    border-top: 1px solid color-mix(in srgb, var(--ink-900) 8%, transparent);
+    font-size: var(--text-sm);
+    color: var(--ink-400);
+  }
+
+  .foot__inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-4);
+  }
+
+  .foot a {
+    color: var(--ink-500);
+    text-decoration: none;
+  }
+
+  .foot a:hover {
+    color: var(--clay);
+  }
+
+  .foot__dot {
+    margin-inline: var(--space-2);
+  }
+
+  .foot__right {
+    display: flex;
+    gap: var(--space-4);
+  }
+</style>

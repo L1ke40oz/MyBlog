@@ -1,0 +1,817 @@
+/* ==========================================================================
+   首页那张书桌
+   桌面（.desk__plane）比屏幕大一圈，可以拖着看四周；
+   桌上的东西（.obj）可以各自拖动，位置存在 localStorage 里。
+   ========================================================================== */
+
+.desk {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      120% 100% at 18% 8%,
+      var(--desk-light) 0%,
+      var(--desk-base) 46%,
+      var(--desk-shade) 100%
+    ),
+    var(--desk-base);
+  touch-action: none;
+  cursor: grab;
+}
+
+.desk.is-panning {
+  cursor: grabbing;
+}
+
+/* 四周压暗一点，让中间的构图被"框"住 */
+.desk::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background: radial-gradient(
+    115% 90% at 50% 45%,
+    transparent 55%,
+    rgb(58 46 32 / 13%) 100%
+  );
+}
+
+.desk__plane {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 2040px;
+  height: 1320px;
+  margin: -660px 0 0 -1020px;
+  transform: translate3d(var(--px, 0px), var(--py, 0px), 0);
+  will-change: transform;
+}
+
+.desk__plane.is-settling {
+  transition: transform 0.55s var(--ease-out);
+}
+
+/* 从左上斜进来的一道窗光 */
+.desk__light {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    108deg,
+    rgb(255 252 244 / 55%) 0%,
+    rgb(255 252 244 / 18%) 26%,
+    transparent 52%
+  );
+  mix-blend-mode: soft-light;
+}
+
+/* 咖啡渍：一圈没擦干净的印子 */
+.desk__stain {
+  position: absolute;
+  top: 930px;
+  left: 505px;
+  width: 132px;
+  height: 132px;
+  pointer-events: none;
+  border-radius: 50%;
+  border: 7px solid rgb(120 84 52 / 9%);
+  filter: blur(1.5px);
+  transform: rotate(-14deg) scaleY(0.82);
+}
+
+/* --- 固定在屏幕上的三样东西 --- */
+
+.desk__mark {
+  position: absolute;
+  z-index: 5;
+  top: clamp(var(--space-4), 4vh, var(--space-8));
+  left: clamp(var(--space-4), 4vw, var(--space-8));
+  font-family: var(--font-serif);
+  font-size: var(--text-lg);
+  letter-spacing: 0.02em;
+  color: var(--ink-500);
+  user-select: none;
+}
+
+.desk__hint {
+  position: absolute;
+  z-index: 5;
+  bottom: clamp(var(--space-4), 4vh, var(--space-8));
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: var(--text-xs);
+  letter-spacing: 0.1em;
+  color: var(--ink-400);
+  white-space: nowrap;
+  user-select: none;
+  animation: hint-in 1.2s var(--ease-out) 0.8s both;
+  transition: opacity 0.5s;
+}
+
+.desk__hint.is-gone {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@keyframes hint-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(-50%);
+  }
+}
+
+.desk__tidy {
+  position: absolute;
+  z-index: 5;
+  right: clamp(var(--space-4), 4vw, var(--space-8));
+  bottom: clamp(var(--space-4), 4vh, var(--space-8));
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-xs);
+  color: var(--ink-500);
+  background: color-mix(in srgb, var(--paper) 60%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ink-900) 8%, transparent);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.3s, color 0.2s, background-color 0.2s;
+}
+
+/* 只有真的挪动过东西，"整理桌面"才出现 */
+.desk.is-messy .desk__tidy {
+  opacity: 1;
+}
+
+.desk__tidy:hover {
+  color: var(--ink-900);
+  background: var(--paper);
+}
+
+/* ==========================================================================
+   桌上的东西：通用部分
+   ========================================================================== */
+
+.obj {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: translate3d(var(--x), var(--y), 0) rotate(var(--r, 0deg));
+  transform-origin: 50% 50%;
+  text-decoration: none;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.obj.is-dragging {
+  z-index: 40;
+  cursor: grabbing;
+}
+
+/* 真正做位移和缩放的那一层，和外层的定位互不干扰 */
+.obj__lift {
+  position: relative;
+  display: block;
+  transition: transform 0.35s var(--ease-spring), filter 0.35s var(--ease-out);
+  filter: drop-shadow(0 3px 5px rgb(58 46 32 / 12%))
+    drop-shadow(0 12px 22px rgb(58 46 32 / 12%));
+}
+
+.obj:hover .obj__lift,
+.obj:focus-visible .obj__lift {
+  transform: translateY(-7px) scale(1.025);
+  filter: drop-shadow(0 6px 10px rgb(58 46 32 / 13%))
+    drop-shadow(0 26px 46px rgb(58 46 32 / 18%));
+}
+
+.obj.is-dragging .obj__lift {
+  transform: translateY(-11px) scale(1.04) rotate(0.6deg);
+  transition: none;
+  filter: drop-shadow(0 10px 14px rgb(58 46 32 / 14%))
+    drop-shadow(0 34px 60px rgb(58 46 32 / 20%));
+}
+
+/* 点开时：往上抬一下再放大淡出，然后才跳页 */
+.obj.is-opening .obj__lift {
+  transform: translateY(-16px) scale(1.09);
+  opacity: 0;
+  transition: transform 0.34s var(--ease-out), opacity 0.34s ease-in;
+}
+
+/* 悬停时才出现的手写小标签 */
+.obj__label {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 50%;
+  font-family: var(--font-hand);
+  font-size: var(--text-sm);
+  letter-spacing: 0.04em;
+  color: var(--ink-400);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -5px);
+  transition: opacity 0.25s var(--ease-out), transform 0.25s var(--ease-out);
+}
+
+.obj:hover .obj__label,
+.obj:focus-visible .obj__label {
+  opacity: 1;
+  transform: translateX(-50%);
+}
+
+/* 阴影统一交给 .obj__lift 的 drop-shadow，避免和 .paper 的叠两层 */
+.obj .paper {
+  box-shadow: none;
+}
+
+/* --- 名片 --- */
+
+.obj--card .obj__lift {
+  display: flex;
+  flex-direction: column;
+  width: 320px;
+  padding: var(--space-6) var(--space-6) var(--space-4);
+}
+
+.card__name {
+  font-family: var(--font-serif);
+  font-size: var(--text-xl);
+  letter-spacing: 0.04em;
+  color: var(--ink-900);
+}
+
+.card__rule {
+  width: 34px;
+  height: 2px;
+  margin: var(--space-3) 0 var(--space-4);
+  background: var(--clay);
+  opacity: 0.6;
+}
+
+.card__line {
+  font-size: var(--text-sm);
+  line-height: 1.7;
+  color: var(--ink-500);
+}
+
+.card__foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-6);
+  font-size: var(--text-xs);
+  color: var(--ink-400);
+}
+
+.card__tag {
+  padding: 2px 7px;
+  border: 1px solid var(--ink-200);
+  border-radius: var(--radius-full);
+  letter-spacing: 0.04em;
+}
+
+.card__flip {
+  margin-left: auto;
+  color: var(--clay);
+  transition: transform 0.3s var(--ease-spring);
+}
+
+.obj--card:hover .card__flip {
+  transform: translateX(4px);
+}
+
+/* --- 日记本：三层纸叠起来 --- */
+
+.obj--diary .obj__lift {
+  display: block;
+  width: 340px;
+  height: 246px;
+}
+
+.stack__sheet {
+  position: absolute;
+  inset: 0;
+  display: block;
+  background: var(--paper-2);
+  border: 1px solid var(--paper-edge);
+  border-radius: var(--radius);
+}
+
+.stack__sheet--3 {
+  transform: rotate(-2.6deg) translate(-5px, 5px);
+  background: color-mix(in srgb, var(--paper-2) 88%, var(--desk-shade));
+}
+
+.stack__sheet--2 {
+  transform: rotate(1.6deg) translate(4px, 2px);
+}
+
+.stack__sheet--1 {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-6);
+  background: var(--paper);
+}
+
+/* 封面左边一道装订线 */
+.stack__sheet--1::after {
+  content: "";
+  position: absolute;
+  top: var(--space-4);
+  bottom: var(--space-4);
+  left: 15px;
+  width: 1px;
+  background: var(--clay-soft);
+}
+
+.stack__kicker {
+  font-size: var(--text-xs);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-400);
+}
+
+.stack__title {
+  margin-top: var(--space-3);
+  font-family: var(--font-serif);
+  font-size: var(--text-lg);
+  line-height: 1.45;
+  color: var(--ink-900);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.stack__title--empty {
+  color: var(--ink-400);
+}
+
+.stack__date {
+  margin-top: var(--space-2);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  color: var(--indigo);
+  opacity: 0.75;
+}
+
+/* 封面下半部分几根横线，暗示"里面写了东西" */
+.stack__ruled {
+  margin-top: auto;
+  height: 46px;
+  background-image: repeating-linear-gradient(
+    var(--ink-200) 0 1px,
+    transparent 1px 15px
+  );
+  opacity: 0.5;
+  mask-image: linear-gradient(90deg, #000 0%, #000 62%, transparent 100%);
+}
+
+/* --- 拍立得：三张扇开 --- */
+
+.obj--photos .obj__lift {
+  display: block;
+  width: 224px;
+  height: 262px;
+}
+
+.pola {
+  position: absolute;
+  inset: 0;
+  display: block;
+  padding: 12px 12px 34px;
+  background: var(--paper);
+  border: 1px solid var(--paper-edge);
+  border-radius: 3px;
+}
+
+.pola--3 {
+  transform: rotate(-9deg) translate(-14px, 6px);
+  background: color-mix(in srgb, var(--paper) 92%, var(--desk-shade));
+}
+
+.pola--2 {
+  transform: rotate(5deg) translate(11px, 2px);
+}
+
+.pola--1 {
+  display: flex;
+  flex-direction: column;
+  transform: rotate(-1.5deg);
+}
+
+.pola__frame {
+  flex: 1;
+  display: block;
+  border-radius: 2px;
+  background: linear-gradient(
+      168deg,
+      color-mix(in srgb, var(--indigo) 55%, var(--desk-light)) 0%,
+      color-mix(in srgb, var(--clay) 42%, var(--desk-light)) 100%
+    ),
+    var(--desk-shade);
+  box-shadow: inset 0 1px 3px rgb(30 27 24 / 22%);
+}
+
+.pola__caption {
+  padding-top: 9px;
+  font-family: var(--font-hand);
+  font-size: var(--text-xs);
+  text-align: center;
+  color: var(--ink-500);
+}
+
+/* --- 留言簿：摊开的一本 --- */
+
+.obj--book .obj__lift {
+  display: block;
+  width: 300px;
+  height: 202px;
+}
+
+.book {
+  position: absolute;
+  inset: 0;
+  display: flex;
+}
+
+.book__page {
+  flex: 1;
+  background: var(--paper);
+  border: 1px solid var(--paper-edge);
+}
+
+.book__page--l {
+  border-radius: var(--radius) 0 0 var(--radius);
+  border-right: 0;
+  background-image: repeating-linear-gradient(
+    transparent 0 17px,
+    var(--ink-200) 17px 18px
+  );
+  background-position: 0 26px;
+  background-clip: content-box;
+  padding: var(--space-4);
+  opacity: 0.92;
+}
+
+.book__page--r {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  border-left: 0;
+}
+
+.book__title {
+  font-family: var(--font-serif);
+  font-size: var(--text-xl);
+  letter-spacing: 0.18em;
+  color: var(--ink-900);
+  writing-mode: vertical-rl;
+}
+
+/* 中缝：一道内凹的阴影 */
+.book__spine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 22px;
+  transform: translateX(-50%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgb(58 46 32 / 13%) 45%,
+    rgb(58 46 32 / 13%) 55%,
+    transparent
+  );
+}
+
+/* 搭在书上的钢笔 */
+.book__pen {
+  position: absolute;
+  right: -28px;
+  bottom: 22px;
+  width: 148px;
+  height: 9px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(
+    90deg,
+    var(--indigo) 0 62%,
+    color-mix(in srgb, var(--indigo) 55%, var(--desk-light)) 62% 78%,
+    var(--ink-400) 78% 100%
+  );
+  transform: rotate(-24deg);
+  transition: transform 0.4s var(--ease-spring);
+}
+
+.obj--book:hover .book__pen {
+  transform: rotate(-16deg) translate(-6px, -3px);
+}
+
+/* --- 铅笔 --- */
+
+.obj--pencil {
+  width: 168px;
+  height: 11px;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--ink-900) 70%, var(--desk-shade)) 0 5%,
+    var(--desk-light) 5% 9%,
+    #d8ab52 9% 84%,
+    #e8d5b0 84% 92%,
+    color-mix(in srgb, var(--ink-900) 55%, transparent) 92% 100%
+  );
+  box-shadow: 0 2px 4px rgb(58 46 32 / 14%);
+  cursor: default;
+}
+
+/* --- 马克杯 --- */
+
+.obj--mug .obj__lift {
+  width: 120px;
+  height: 120px;
+}
+
+.mug {
+  width: 120px;
+  height: 120px;
+  overflow: visible;
+}
+
+.mug__body,
+.mug__rim {
+  fill: var(--paper);
+  stroke: var(--ink-200);
+  stroke-width: 1.5;
+}
+
+.mug__handle {
+  fill: none;
+  stroke: var(--paper);
+  stroke-width: 8;
+}
+
+.mug__brew {
+  fill: #6f4a33;
+}
+
+.mug__steam path {
+  fill: none;
+  stroke: var(--ink-400);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  opacity: 0;
+}
+
+/* 点一下才冒气，冒完就停 */
+.obj--mug.is-steaming .mug__steam path {
+  animation: steam 2.1s var(--ease-out) 1;
+}
+
+.obj--mug.is-steaming .mug__steam path:nth-child(2) {
+  animation-delay: 0.28s;
+}
+
+@keyframes steam {
+  0% {
+    opacity: 0;
+    transform: translateY(6px) scaleY(0.7);
+  }
+
+  30% {
+    opacity: 0.75;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-26px) scaleY(1.15);
+  }
+}
+
+/* --- 猫 --- */
+
+.obj--cat .obj__lift {
+  width: 210px;
+  height: 120px;
+}
+
+.cat {
+  width: 210px;
+  height: 120px;
+}
+
+.cat__body path,
+.cat__body ellipse,
+.cat__body circle {
+  fill: color-mix(in srgb, var(--ink-400) 78%, var(--desk-shade));
+}
+
+.cat__tail {
+  stroke: color-mix(in srgb, var(--ink-400) 78%, var(--desk-shade));
+  stroke-width: 12;
+  stroke-linecap: round;
+  transform-origin: 176px 96px;
+  animation: tail-sway 5.5s var(--ease-in-out) infinite;
+}
+
+.cat__eye {
+  stroke: var(--paper-2);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  opacity: 0.85;
+}
+
+@keyframes tail-sway {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+
+  50% {
+    transform: rotate(-7deg);
+  }
+}
+
+/* 呼吸起伏放在 svg 上，不要放 .obj__lift —— 那层要留给 hover 和拖拽 */
+.cat {
+  transform-origin: 50% 100%;
+  animation: breathe 4.6s var(--ease-in-out) infinite;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    transform: scaleY(1);
+  }
+
+  50% {
+    transform: scaleY(1.025);
+  }
+}
+
+/* 点一下伸个懒腰 */
+.obj--cat.is-stretching .cat {
+  animation: stretch 1.15s var(--ease-spring) 1;
+}
+
+@keyframes stretch {
+  0% {
+    transform: scale(1, 1);
+  }
+
+  35% {
+    transform: scale(1.1, 0.9);
+  }
+
+  65% {
+    transform: scale(0.97, 1.06);
+  }
+
+  100% {
+    transform: scale(1, 1);
+  }
+}
+
+/* --- 回形针 --- */
+
+.obj--clip {
+  width: 40px;
+  height: 84px;
+  stroke: var(--ink-400);
+  opacity: 0.75;
+  cursor: default;
+  filter: drop-shadow(0 2px 3px rgb(58 46 32 / 18%));
+}
+
+/* ==========================================================================
+   窄屏：桌子摊不开，就退化成一列干净的卡片
+   （拖动、平移、装饰件全部关掉，只留纸张质感和内容）
+   ========================================================================== */
+
+@media (max-width: 52rem) {
+  .desk {
+    position: static;
+    min-height: 100vh;
+    overflow: visible;
+    cursor: auto;
+    touch-action: auto;
+  }
+
+  .desk::before,
+  .desk__light,
+  .desk__stain,
+  .desk__hint,
+  .desk__tidy,
+  .obj--pencil,
+  .obj--clip,
+  .stack__sheet--2,
+  .stack__sheet--3,
+  .pola--2,
+  .pola--3,
+  .book__spine,
+  .book__pen,
+  .obj__label {
+    display: none;
+  }
+
+  .desk__plane {
+    position: static;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5, 1.25rem);
+    width: auto;
+    height: auto;
+    margin: 0;
+    padding: var(--space-6) var(--space-4) var(--space-16);
+    transform: none;
+  }
+
+  .desk__mark {
+    position: static;
+    padding: var(--space-2) 0 var(--space-4);
+    font-size: var(--text-2xl);
+    color: var(--ink-900);
+  }
+
+  .obj {
+    position: static;
+    transform: none;
+  }
+
+  .obj:hover .obj__lift,
+  .obj:focus-visible .obj__lift {
+    transform: none;
+  }
+
+  .obj__lift,
+  .obj--card .obj__lift,
+  .obj--diary .obj__lift,
+  .obj--photos .obj__lift,
+  .obj--book .obj__lift {
+    width: 100%;
+  }
+
+  .obj--diary .obj__lift {
+    height: 190px;
+  }
+
+  .obj--photos .obj__lift {
+    height: 220px;
+  }
+
+  .obj--book .obj__lift {
+    height: 132px;
+  }
+
+  .book__page--l {
+    flex: 0 0 34%;
+  }
+
+  .book__title {
+    writing-mode: horizontal-tb;
+    letter-spacing: 0.24em;
+  }
+
+  .pola--1 {
+    transform: none;
+  }
+
+  /* 猫和杯子并排放在最下面，当个落款 */
+  .obj--mug,
+  .obj--cat {
+    align-self: center;
+    margin-top: var(--space-8);
+  }
+
+  .obj--mug .obj__lift,
+  .obj--mug .mug {
+    width: 84px;
+    height: 84px;
+  }
+
+  .obj--cat .obj__lift,
+  .obj--cat .cat {
+    width: 168px;
+    height: 96px;
+  }
+}
+
+/* 系统开了"减少动态效果"时，猫不呼吸、尾巴不摇 */
+@media (prefers-reduced-motion: reduce) {
+  .cat,
+  .cat__tail {
+    animation: none;
+  }
+}

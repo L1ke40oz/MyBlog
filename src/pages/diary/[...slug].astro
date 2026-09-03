@@ -1,0 +1,39 @@
+---
+import { getCollection, render, type CollectionEntry } from "astro:content";
+import DiaryLayout from "../../layouts/DiaryLayout.astro";
+import SceneLayout from "../../layouts/SceneLayout.astro";
+import { published, byNewest } from "../../utils";
+
+/* 每篇日记一个页面。文件名就是网址：
+   src/content/diary/2026-09-03-第一天.md → /diary/2026-09-03-第一天/ */
+
+export async function getStaticPaths() {
+  const entries = (await getCollection("diary", published)).sort(byNewest);
+
+  return entries.map((entry, i) => ({
+    params: { slug: entry.id },
+    props: {
+      entry,
+      /* 数组是新→旧，所以后一项更早 */
+      prev: entries[i + 1],
+      next: entries[i - 1],
+    },
+  }));
+}
+
+interface Props {
+  entry: CollectionEntry<"diary">;
+  prev?: CollectionEntry<"diary">;
+  next?: CollectionEntry<"diary">;
+}
+
+const { entry, prev, next } = Astro.props;
+const { Content } = await render(entry);
+
+/* md 里写 layout: scene 就走满屏插画版式，默认是纸页版式 */
+const Layout = entry.data.layout === "scene" ? SceneLayout : DiaryLayout;
+---
+
+<Layout entry={entry} prev={prev} next={next}>
+  <Content />
+</Layout>

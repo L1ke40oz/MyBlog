@@ -1,0 +1,18 @@
+# 仓库里统一存成 LF（Windows 上检出时该转的还是会转成 CRLF）
+* text=auto
+
+# 这两类文件会在 Linux 服务器 / GitHub Actions 上被直接解析执行，
+# 带上 \r 会报 "$'\r': command not found" 这种莫名其妙的错，强制 LF
+*.yml text eol=lf
+*.yaml text eol=lf
+*.conf text eol=lf
+
+# 二进制，别做行尾转换也别当文本 diff
+*.jpg binary
+*.jpeg binary
+*.png binary
+*.webp binary
+*.avif binary
+*.ico binary
+*.woff binary
+*.woff2 binary

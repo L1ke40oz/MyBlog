@@ -1,0 +1,39 @@
+---
+import BaseLayout from "./BaseLayout.astro";
+import PaperNav from "../components/PaperNav.astro";
+import SiteFooter from "../components/SiteFooter.astro";
+
+interface Props {
+  title: string;
+  description?: string;
+  /** 页眉上方的小字，比如 "DIARY" */
+  kicker?: string;
+  /** 大标题，不传就用 title */
+  heading?: string;
+  /** 标题下面的一两句说明 */
+  sub?: string;
+  /** 正文区最大宽度收窄一些（文章页用） */
+  narrow?: boolean;
+}
+
+const { title, description, kicker, heading, sub, narrow = false } = Astro.props;
+---
+
+<BaseLayout title={title} description={description}>
+  <PaperNav />
+
+  <main id="main" class:list={["shell", { "shell--narrow": narrow }]}>
+    {
+      (kicker || heading || sub) && (
+        <header class="page-head rise">
+          {kicker && <p class="page-head__kicker">{kicker}</p>}
+          <h1 class="page-head__title">{heading ?? title}</h1>
+          {sub && <p class="page-head__sub">{sub}</p>}
+        </header>
+      )
+    }
+    <slot />
+  </main>
+
+  <SiteFooter />
+</BaseLayout>

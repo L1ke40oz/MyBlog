@@ -1,0 +1,231 @@
+---
+import PageLayout from "../layouts/PageLayout.astro";
+import { site, links } from "../config";
+---
+
+<PageLayout
+  title="关于"
+  kicker="ABOUT"
+  heading="关于"
+  sub="桌子的主人，以及这张桌子是怎么搭起来的。"
+  narrow
+>
+  <section class="me paper rise">
+    <div class="me__stamp" aria-hidden="true">
+      <svg viewBox="0 0 160 96">
+        <!-- 猫：三角耳朵 + 闭着的眼 -->
+        <g class="pet pet--cat">
+          <path d="M25 40 21 12 47 30Z"></path>
+          <path d="M69 29 91 9 93 37Z"></path>
+          <circle cx="56" cy="58" r="27"></circle>
+        </g>
+        <path class="wink" d="M44 56q7 7 14 0"></path>
+        <path class="wink" d="M62 56q7 7 14 0"></path>
+
+        <!-- 狗：垂耳朵 + 一点鼻子 -->
+        <g class="pet pet--dog">
+          <path d="M104 34q-17 1-15 26 2 19 17 11z"></path>
+          <path d="M140 34q17 1 15 26-2 19-17 11z"></path>
+          <circle cx="122" cy="60" r="24"></circle>
+        </g>
+        <ellipse class="snout" cx="122" cy="72" rx="11" ry="8"></ellipse>
+        <path class="wink" d="M112 58q6 6 12 0"></path>
+        <path class="wink" d="M126 58q6 6 12 0"></path>
+      </svg>
+    </div>
+
+    <div class="me__text">
+      <p class="me__name">{site.author}</p>
+      <h2 class="me__motto">小猫小狗拯救世界</h2>
+      <p class="me__en">Stay wild, stay grounded.</p>
+    </div>
+  </section>
+
+  <div class="prose rise">
+    <p>{site.intro}</p>
+
+    <h2>这里有什么</h2>
+
+    <p>
+      三样东西：<a href="/diary/">日记</a>是随笔，想到什么写什么，不定期；
+      <a href="/photos/">照片墙</a>是一个文件夹，随手拍的都往里丢；
+      <a href="/guestbook/">留言板</a>只有一页，路过可以留一句。
+    </p>
+
+    <p>
+      文章底下没有评论区，也没有访问量统计、没有搜索框。
+      不是做不了，是不想要——这个站更像自己的房间，不是运营的产品。
+    </p>
+
+    <h2>这张桌子是怎么搭的</h2>
+
+    <p>
+      静态站，没有后端也没有数据库。写一篇日记就是往一个文件夹里放一个
+      <code>.md</code> 文件，推上去之后自动构建、自动传到我自己的服务器。
+      首页那张书桌是纯 HTML 和 CSS 画的，只有拖动和几个彩蛋用到一点脚本。
+    </p>
+
+    <p>
+      全站不外链任何字体，用的都是你系统里已经有的字，
+      所以打开不会卡在一片白等着字体下载——上一版博客就吃过这个亏。
+    </p>
+  </div>
+
+  <section class="out rise">
+    <p class="out__label">别处也能找到我</p>
+    <ul class="out__list">
+      {
+        links.map((l) => (
+          <li>
+            <a href={l.href} target="_blank" rel="noopener noreferrer">
+              <span>{l.label}</span>
+              <span class="out__arrow" aria-hidden="true">↗</span>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+</PageLayout>
+
+<style>
+  .me {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: clamp(var(--space-5), 4vw, var(--space-12));
+    padding: clamp(var(--space-6), 5vw, var(--space-12));
+  }
+
+  /* 一枚邮票：虚线齿边 + 里面一圈细框 */
+  .me__stamp {
+    flex: 0 0 auto;
+    width: clamp(140px, 22vw, 190px);
+    padding: var(--space-3);
+    background: var(--paper-2);
+    border: 2px dashed color-mix(in srgb, var(--clay) 32%, var(--paper-edge));
+    border-radius: var(--radius-sm);
+  }
+
+  .me__stamp svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .pet--cat path,
+  .pet--cat circle {
+    fill: color-mix(in srgb, var(--sage) 52%, var(--ink-700));
+  }
+
+  .pet--dog path,
+  .pet--dog circle {
+    fill: color-mix(in srgb, var(--clay) 46%, var(--ink-500));
+  }
+
+  .snout {
+    fill: color-mix(in srgb, var(--paper) 78%, var(--clay-soft));
+  }
+
+  .wink {
+    fill: none;
+    stroke: var(--paper-2);
+    stroke-width: 2.4;
+    stroke-linecap: round;
+  }
+
+  .me__text {
+    flex: 1 1 16rem;
+  }
+
+  .me__name {
+    font-size: var(--text-xs);
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-400);
+  }
+
+  .me__motto {
+    margin-top: var(--space-3);
+    font-family: var(--font-serif);
+    font-size: clamp(var(--text-xl), 4.6vw, var(--text-3xl));
+    font-weight: 400;
+    letter-spacing: 0.02em;
+  }
+
+  .me__en {
+    margin-top: var(--space-3);
+    font-family: var(--font-hand);
+    font-size: var(--text-lg);
+    color: var(--clay);
+  }
+
+  .prose {
+    margin-top: clamp(var(--space-12), 8vh, var(--space-16));
+  }
+
+  /* --- 外链 --- */
+
+  .out {
+    margin-top: clamp(var(--space-12), 8vh, var(--space-16));
+  }
+
+  .out__label {
+    font-size: var(--text-xs);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-400);
+  }
+
+  .out__list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    margin-top: var(--space-4);
+    list-style: none;
+  }
+
+  .out__list a {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-5);
+    font-size: var(--text-sm);
+    color: var(--ink-700);
+    text-decoration: none;
+    background: var(--paper);
+    border: 1px solid var(--paper-edge);
+    border-radius: var(--radius-full);
+    box-shadow: var(--lift-0);
+    transition: transform 0.3s var(--ease-out), color 0.2s, box-shadow 0.3s;
+  }
+
+  .out__list a:hover {
+    color: var(--clay);
+    transform: translateY(-2px);
+    box-shadow: var(--lift-1);
+  }
+
+  .out__arrow {
+    color: var(--ink-400);
+    transition: transform 0.3s var(--ease-spring);
+  }
+
+  .out__list a:hover .out__arrow {
+    color: var(--clay);
+    transform: translate(2px, -2px);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .out__list a:hover {
+      transform: none;
+    }
+
+    .out__list a:hover .out__arrow {
+      transform: none;
+    }
+  }
+</style>
+
+
+

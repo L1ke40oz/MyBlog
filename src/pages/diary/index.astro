@@ -1,0 +1,204 @@
+---
+import { getCollection } from "astro:content";
+import PageLayout from "../../layouts/PageLayout.astro";
+import { fmtDay, tname, excerpt } from "../../utils";
+
+const entries = (await getCollection("diary", ({ data }) => !data.draft)).sort(
+  (a, b) => b.data.date.valueOf() - a.data.date.valueOf(),
+);
+
+/* 按年份分组，每一年起一个新段落 */
+const years = [...new Set(entries.map((e) => e.data.date.getFullYear()))].sort(
+  (a, b) => b - a,
+);
+const byYear = years.map((y) => ({
+  year: y,
+  items: entries.filter((e) => e.data.date.getFullYear() === y),
+}));
+---
+
+<PageLayout
+  title="日记"
+  kicker="DIARY"
+  heading="日记"
+  sub="想到什么写什么，不定期，不成体系。"
+>
+  {
+    entries.length === 0 && (
+      <p class="empty paper">
+        还没有第一篇。往 <code>src/content/diary/</code> 里放一个 .md
+        文件就会出现在这里。
+      </p>
+    )
+  }
+
+  {
+    byYear.map((group) => (
+      <section class="year">
+        <h2 class="year__label">{group.year}</h2>
+
+        <ul class="cards rise-stagger">
+          {group.items.map((e, i) => (
+            <li class="cards__item" style={`--i:${i}`}>
+              <a class="note paper" href={`/diary/${e.id}/`}>
+                <p class="note__meta">
+                  <span class="note__day">{fmtDay(e.data.date)}</span>
+                  {e.data.weather && <span class="note__chip">{e.data.weather}</span>}
+                  {e.data.mood && <span class="note__chip">{e.data.mood}</span>}
+                </p>
+
+                <h3 class="note__title" style={`view-transition-name:${tname(e.id)}`}>
+                  {e.data.title}
+                </h3>
+
+                <p class="note__sum">
+                  {e.data.summary ?? excerpt(e.body)}
+                </p>
+
+                {e.data.tags.length > 0 && (
+                  <p class="note__tags">
+                    {e.data.tags.map((t) => (
+                      <span class="note__tag">#{t}</span>
+                    ))}
+                  </p>
+                )}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    ))
+  }
+</PageLayout>
+
+<style>
+  .empty {
+    padding: var(--space-8);
+    color: var(--ink-500);
+  }
+
+  .empty code {
+    color: var(--clay);
+  }
+
+  .year + .year {
+    margin-top: var(--space-16);
+  }
+
+  /* 年份用大而淡的数字，像本子上的分隔页 */
+  .year__label {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
+    font-family: var(--font-serif);
+    font-size: var(--text-lg);
+    font-weight: 400;
+    letter-spacing: 0.14em;
+    color: var(--ink-400);
+  }
+
+  .year__label::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: color-mix(in srgb, var(--ink-900) 9%, transparent);
+  }
+
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
+    gap: var(--space-4);
+    list-style: none;
+  }
+
+  .note {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: var(--space-6);
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.4s var(--ease-out), box-shadow 0.4s var(--ease-out);
+  }
+
+  .note:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--lift-2);
+  }
+
+  /* 左上角一枚小折角，暗示这是一张卡片 */
+  .note::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 0 22px 22px 0;
+    border-color: transparent var(--desk-base) transparent transparent;
+    transition: border-width 0.3s var(--ease-out);
+  }
+
+  .note:hover::after {
+    border-width: 0 32px 32px 0;
+  }
+
+  .note__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-xs);
+  }
+
+  .note__day {
+    letter-spacing: 0.1em;
+    color: var(--indigo);
+  }
+
+  .note__chip {
+    padding: 1px 7px;
+    color: var(--ink-500);
+    background: color-mix(in srgb, var(--sage) 14%, transparent);
+    border-radius: var(--radius-full);
+  }
+
+  .note__title {
+    margin-top: var(--space-3);
+    font-family: var(--font-serif);
+    font-size: var(--text-xl);
+    font-weight: 400;
+    line-height: 1.4;
+  }
+
+  .note__sum {
+    margin-top: var(--space-3);
+    font-size: var(--text-sm);
+    line-height: 1.75;
+    color: var(--ink-500);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .note__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-top: auto;
+    padding-top: var(--space-6);
+    font-size: var(--text-xs);
+    color: var(--ink-400);
+  }
+
+  .note__tag {
+    transition: color 0.2s;
+  }
+
+  .note:hover .note__tag {
+    color: var(--clay);
+  }
+</style>

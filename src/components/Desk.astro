@@ -1,0 +1,210 @@
+---
+import { getCollection } from "astro:content";
+import { site, links } from "../config";
+import "../styles/desk.css";
+
+/* 最新一篇日记（用来印在日记本封面上） */
+const entries = (await getCollection("diary", ({ data }) => !data.draft)).sort(
+  (a, b) => b.data.date.valueOf() - a.data.date.valueOf(),
+);
+const latest = entries[0];
+const diaryCount = entries.length;
+
+/* 照片张数：数 src/photos 里的图片文件 */
+const photoFiles = import.meta.glob("../photos/*.{jpg,jpeg,png,webp,avif}");
+const photoCount = Object.keys(photoFiles).length;
+
+const fmt = (d: Date) =>
+  `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(
+    d.getDate(),
+  ).padStart(2, "0")}`;
+---
+
+<div class="desk" id="desk" data-desk>
+  <div class="desk__plane" id="deskPlane">
+    <!-- 从左上斜下来的一道光 -->
+    <div class="desk__light" aria-hidden="true"></div>
+    <div class="desk__stain" aria-hidden="true"></div>
+
+    <!-- 名片 → 关于 -->
+    <a
+      class="obj obj--card"
+      href="/about"
+      data-obj="card"
+      style="--x:150px; --y:170px; --r:-2.2deg"
+    >
+      <span class="obj__lift paper">
+        <span class="card__name">{site.author}</span>
+        <span class="card__rule"></span>
+        <span class="card__line">{site.tagline}</span>
+        <span class="card__foot">
+          {links.map((l) => <span class="card__tag">{l.label}</span>)}
+          <span class="card__flip">关于我 →</span>
+        </span>
+      </span>
+      <span class="obj__label">名片</span>
+    </a>
+
+    <!-- 铅笔（纯装饰） -->
+    <span
+      class="obj obj--pencil"
+      aria-hidden="true"
+      style="--x:540px; --y:245px; --r:12deg"></span>
+
+    <!-- 日记本 → 日记列表 -->
+    <a
+      class="obj obj--diary"
+      href="/diary"
+      data-obj="diary"
+      style="--x:690px; --y:380px; --r:1.4deg"
+    >
+      <span class="obj__lift">
+        <span class="stack__sheet stack__sheet--3"></span>
+        <span class="stack__sheet stack__sheet--2"></span>
+        <span class="stack__sheet stack__sheet--1 paper">
+          <span class="stack__kicker">日记 · {diaryCount} 篇</span>
+          {
+            latest ? (
+              <>
+                <span class="stack__title">{latest.data.title}</span>
+                <span class="stack__date">{fmt(latest.data.date)}</span>
+              </>
+            ) : (
+              <span class="stack__title stack__title--empty">还没写第一篇</span>
+            )
+          }
+          <span class="stack__ruled"></span>
+        </span>
+      </span>
+      <span class="obj__label">日记本</span>
+    </a>
+
+    <!-- 一叠拍立得 → 照片墙 -->
+    <a
+      class="obj obj--photos"
+      href="/photos"
+      data-obj="photos"
+      style="--x:1290px; --y:200px; --r:3.5deg"
+    >
+      <span class="obj__lift">
+        <span class="pola pola--3"></span>
+        <span class="pola pola--2"></span>
+        <span class="pola pola--1">
+          <span class="pola__frame"></span>
+          <span class="pola__caption">照片墙 · {photoCount} 张</span>
+        </span>
+      </span>
+      <span class="obj__label">拍立得</span>
+    </a>
+
+    <!-- 留言簿 → 留言板 -->
+    <a
+      class="obj obj--book"
+      href="/guestbook"
+      data-obj="book"
+      style="--x:1280px; --y:760px; --r:-2.6deg"
+    >
+      <span class="obj__lift">
+        <span class="book">
+          <span class="book__page book__page--l"></span>
+          <span class="book__page book__page--r">
+            <span class="book__title">留言簿</span>
+          </span>
+          <span class="book__spine"></span>
+        </span>
+        <span class="book__pen" aria-hidden="true"></span>
+      </span>
+      <span class="obj__label">留言簿</span>
+    </a>
+
+    <!-- 马克杯（点一下会冒热气） -->
+    <button
+      class="obj obj--mug"
+      type="button"
+      data-obj="mug"
+      data-egg="mug"
+      style="--x:560px; --y:870px; --r:0deg"
+      aria-label="桌上的马克杯"
+    >
+      <span class="obj__lift">
+        <svg class="mug" viewBox="0 0 120 120" aria-hidden="true">
+          <g class="mug__steam">
+            <path d="M40 24c6-6-4-12 2-19" />
+            <path d="M56 20c6-6-4-12 2-19" />
+          </g>
+          <path
+            class="mug__body"
+            d="M22 34h58v46a18 18 0 0 1-18 18H40a18 18 0 0 1-18-18Z"></path>
+          <path class="mug__handle" d="M80 46h10a16 16 0 0 1 0 32h-10"></path>
+          <ellipse class="mug__rim" cx="51" cy="34" rx="29" ry="8"></ellipse>
+          <ellipse class="mug__brew" cx="51" cy="34" rx="23" ry="5.5"></ellipse>
+        </svg>
+      </span>
+      <span class="obj__label">还热着</span>
+    </button>
+
+    <!-- 睡着的猫（点一下会伸个懒腰） -->
+    <button
+      class="obj obj--cat"
+      type="button"
+      data-obj="cat"
+      data-egg="cat"
+      style="--x:210px; --y:960px; --r:0deg"
+      aria-label="睡在桌角的猫"
+    >
+      <span class="obj__lift">
+        <svg class="cat" viewBox="0 0 210 120" aria-hidden="true">
+          <g class="cat__body">
+            <path d="M26 52 30 26 52 46Z"></path>
+            <path d="M54 44 76 28 72 54Z"></path>
+            <ellipse cx="112" cy="82" rx="72" ry="34"></ellipse>
+            <circle cx="46" cy="72" r="30"></circle>
+          </g>
+          <path
+            class="cat__tail"
+            d="M176 96q26-6 22-30-3-18-22-18"
+            fill="none"></path>
+          <path class="cat__eye" d="M34 70q7 6 14 0" fill="none"></path>
+          <path class="cat__eye" d="M54 70q7 6 14 0" fill="none"></path>
+        </svg>
+      </span>
+      <span class="obj__label">别吵，它在睡</span>
+    </button>
+
+    <!-- 纯装饰：回形针 -->
+    <svg
+      class="obj obj--clip"
+      viewBox="0 0 40 84"
+      aria-hidden="true"
+      style="--x:1090px; --y:1010px; --r:-28deg"
+    >
+      <path
+        d="M12 74V22a8 8 0 0 1 16 0v44a13 13 0 0 1-26 0V26"
+        fill="none"
+        stroke-width="4"
+        stroke-linecap="round"></path>
+    </svg>
+
+
+
+
+
+  </div>
+
+  <!-- 固定在屏幕上、不随桌面移动的那几样东西 -->
+  <p class="desk__mark">{site.name}</p>
+
+  <p class="desk__hint" id="deskHint" aria-hidden="true">
+    <span>拖动桌面看看四周 · 东西也能挪</span>
+  </p>
+
+  <button class="desk__tidy" id="deskTidy" type="button">整理桌面</button>
+</div>
+
+<script>
+  import { initDesk } from "../scripts/desk";
+
+  // ClientRouter 打开后，切页不会重新执行模块顶层代码，
+  // 所以统一挂在 astro:page-load 上（首次加载也会触发）
+  document.addEventListener("astro:page-load", initDesk);
+</script>

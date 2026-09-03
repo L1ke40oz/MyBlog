@@ -1,0 +1,177 @@
+---
+import { guestbook, site } from "../config";
+
+/* ==========================================================================
+   留言板（Giscus）
+   留言其实是存在 GitHub 仓库的 Discussions 里，所以不需要数据库和后端，
+   代价是访客要有 GitHub 账号 —— 这一点在页面上要老实写出来。
+   没配好之前（config.ts 里 enabled: false）显示一段说明，不报错。
+   ========================================================================== */
+
+const ready =
+  guestbook.enabled && guestbook.repoId !== "" && guestbook.categoryId !== "";
+
+const discussUrl = `https://github.com/${guestbook.repo}/discussions`;
+---
+
+{
+  ready ? (
+    <div class="talkboard">
+      <div
+        class="talkboard__mount"
+        data-giscus
+        data-repo={guestbook.repo}
+        data-repo-id={guestbook.repoId}
+        data-category={guestbook.category}
+        data-category-id={guestbook.categoryId}
+        data-mapping={guestbook.mapping}
+        data-lang={guestbook.lang}
+      />
+
+      <p class="talkboard__fallback">
+        半天没加载出来？也可以直接去{" "}
+        <a href={discussUrl} target="_blank" rel="noopener noreferrer">
+          GitHub Discussions
+        </a>{" "}
+        留言，是同一个地方。
+      </p>
+    </div>
+  ) : (
+    <div class="setup paper">
+      <p class="setup__head">留言板还没接上</p>
+
+      <p>
+        留言用的是 Giscus：留言存在 GitHub 仓库的 Discussions 里，
+        我这边不用开数据库，也不用维护后台。仓库和 Discussions 都已经就绪，
+        还差下面这三步。
+      </p>
+
+      <ol class="setup__steps">
+        <li>
+          打开{" "}
+          <a href="https://github.com/apps/giscus" target="_blank" rel="noopener noreferrer">
+            github.com/apps/giscus
+          </a>{" "}
+          点 Install，装到 <code>{guestbook.repo}</code>
+        </li>
+        <li>
+          打开{" "}
+          <a href="https://giscus.app" target="_blank" rel="noopener noreferrer">
+            giscus.app
+          </a>
+          ，仓库填 <code>{guestbook.repo}</code>，分类选{" "}
+          <code>{guestbook.category}</code>，往下拉找到{" "}
+          <code>data-category-id</code>（<code>DIC_kwDO…</code> 那串）
+        </li>
+        <li>
+          抄进 <code>src/config.ts</code> 的 <code>categoryId</code>，
+          再把 <code>enabled</code> 改成 <code>true</code>，提交推送
+        </li>
+      </ol>
+
+      <p class="setup__foot">
+        —— {site.author}（这段话只有你自己会看到，配好就消失了）
+      </p>
+    </div>
+  )
+}
+
+<script>
+  /* giscus 的官方用法是往页面塞一个 <script>，所以只能在客户端拼出来。
+     切页时 DOM 会被换掉，用 dataset 做幂等，避免塞两遍。 */
+  function mountGiscus() {
+    const holder = document.querySelector<HTMLElement>("[data-giscus]");
+    if (!holder || holder.dataset.giscusReady === "1") return;
+    holder.dataset.giscusReady = "1";
+
+    const s = document.createElement("script");
+    s.src = "https://giscus.app/client.js";
+    s.async = true;
+    s.crossOrigin = "anonymous";
+
+    const attrs: Record<string, string> = {
+      "data-repo": holder.dataset.repo ?? "",
+      "data-repo-id": holder.dataset.repoId ?? "",
+      "data-category": holder.dataset.category ?? "",
+      "data-category-id": holder.dataset.categoryId ?? "",
+      "data-mapping": holder.dataset.mapping ?? "pathname",
+      "data-strict": "1",
+      "data-reactions-enabled": "1",
+      "data-emit-metadata": "0",
+      "data-input-position": "top",
+      "data-theme": "light",
+      "data-lang": holder.dataset.lang ?? "zh-CN",
+      "data-loading": "lazy",
+    };
+
+    for (const [k, v] of Object.entries(attrs)) s.setAttribute(k, v);
+    holder.appendChild(s);
+  }
+
+  document.addEventListener("astro:page-load", mountGiscus);
+</script>
+
+<style>
+  .talkboard {
+    margin-top: var(--space-8);
+  }
+
+  /* giscus 自己那套 UI 是白底的，给它铺一张纸接住 */
+  .talkboard__mount {
+    padding: clamp(var(--space-4), 3vw, var(--space-8));
+    background: var(--paper);
+    border: 1px solid var(--paper-edge);
+    border-radius: var(--radius);
+    box-shadow: var(--lift-0);
+    min-height: 12rem;
+  }
+
+  .talkboard__fallback {
+    margin-top: var(--space-4);
+    font-size: var(--text-sm);
+    color: var(--ink-400);
+  }
+
+  /* --- 还没配好时的说明 --- */
+
+  .setup {
+    padding: clamp(var(--space-6), 5vw, var(--space-12));
+    margin-top: var(--space-8);
+    color: var(--ink-700);
+  }
+
+  .setup__head {
+    margin-bottom: var(--space-4);
+    font-family: var(--font-serif);
+    font-size: var(--text-xl);
+    color: var(--ink-900);
+  }
+
+  .setup__steps {
+    margin: var(--space-6) 0 0;
+    padding-left: var(--space-6);
+    font-size: var(--text-sm);
+    line-height: 1.9;
+  }
+
+  .setup__steps li::marker {
+    color: var(--clay);
+  }
+
+  .setup code {
+    padding: 0.15em 0.4em;
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    color: var(--clay);
+    background: color-mix(in srgb, var(--ink-900) 6%, transparent);
+    border-radius: var(--radius-sm);
+  }
+
+  .setup__foot {
+    margin-top: var(--space-8);
+    font-family: var(--font-hand);
+    font-size: var(--text-sm);
+    color: var(--ink-400);
+  }
+</style>
+

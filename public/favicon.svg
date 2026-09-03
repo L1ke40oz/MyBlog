@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="一张纸">
+  <!--
+    书桌上的一张纸。favicon 是独立文件，拿不到 tokens.css 的变量，
+    所以这里的色值是从 tokens.css 抄下来的硬拷贝 —— 改配色时记得同步：
+    #ded6c9 desk / #fcfaf6 paper / #ebe4d7 paper-3 / #b4674c clay / #908779 ink-400
+    只画三笔（折角 + 一条 clay 标题 + 两条灰线），16px 下才不会糊成一团。
+  -->
+  <rect width="32" height="32" rx="7" fill="#ded6c9" />
+
+  <path
+    d="M9 7.2 19 6.3 24 11.1 23.3 25.7 9.7 26.5Z"
+    fill="#fcfaf6"
+    stroke="#cfc7bb"
+    stroke-width="0.8"
+  />
+  <path d="M19 6.3 24 11.1 19.4 11.5Z" fill="#ebe4d7" stroke="#cfc7bb" stroke-width="0.8" />
+
+  <g stroke-linecap="round" fill="none">
+    <path d="M12.4 15.4 19.2 15" stroke="#b4674c" stroke-width="2.2" />
+    <path d="M12.4 19.4 20.4 19" stroke="#908779" stroke-width="1.7" />
+    <path d="M12.4 22.8 17.2 22.5" stroke="#908779" stroke-width="1.7" />
+  </g>
+</svg>

@@ -1,0 +1,84 @@
+---
+import PageLayout from "../layouts/PageLayout.astro";
+---
+
+<PageLayout
+  title="这页不在桌上"
+  description="没找到这一页。"
+  kicker="404"
+  heading="这页不在桌上"
+  sub="链接可能过期了，或者我把那张纸挪走了。"
+  narrow
+>
+  <div class="lost paper rise">
+    <div class="lost__doodle" aria-hidden="true">
+      <svg viewBox="0 0 200 120">
+        <!-- 一张揉皱的纸团 -->
+        <path
+          class="lost__ball"
+          d="M56 34 88 20l34 10 26 22-8 32-30 20-36-4-24-20-6-30Z"></path>
+        <path class="lost__crease" d="M74 30 96 54 78 82M96 54l38-8M96 54l18 34"></path>
+      </svg>
+    </div>
+
+    <p class="lost__hand">大概是被我不小心扫到地上了。</p>
+
+    <ul class="lost__ways">
+      <li><a href="/">回到书桌</a></li>
+      <li><a href="/diary/">翻翻日记</a></li>
+      <li><a href="/photos/">看看照片</a></li>
+    </ul>
+  </div>
+</PageLayout>
+
+<style>
+  .lost {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: clamp(var(--space-6), 5vw, var(--space-12));
+    padding: clamp(var(--space-8), 6vw, var(--space-16));
+  }
+
+  .lost__doodle {
+    flex: 0 0 auto;
+    width: clamp(120px, 20vw, 180px);
+  }
+
+  .lost__doodle svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .lost__ball {
+    fill: var(--paper-2);
+    stroke: var(--ink-200);
+    stroke-width: 2;
+  }
+
+  .lost__crease {
+    fill: none;
+    stroke: var(--ink-200);
+    stroke-width: 1.6;
+    stroke-linecap: round;
+  }
+
+  .lost__hand {
+    flex: 1 1 14rem;
+    font-family: var(--font-hand);
+    font-size: var(--text-lg);
+    color: var(--ink-500);
+  }
+
+  .lost__ways {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-5);
+    width: 100%;
+    padding-top: var(--space-6);
+    border-top: 1px solid color-mix(in srgb, var(--ink-900) 8%, transparent);
+    list-style: none;
+    font-size: var(--text-sm);
+  }
+</style>

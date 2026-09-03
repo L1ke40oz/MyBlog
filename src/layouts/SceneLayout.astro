@@ -1,0 +1,676 @@
+---
+import type { CollectionEntry } from "astro:content";
+import BaseLayout from "./BaseLayout.astro";
+import PaperNav from "../components/PaperNav.astro";
+import SiteFooter from "../components/SiteFooter.astro";
+import EntryFlip from "../components/EntryFlip.astro";
+import { fmtDate, tname, excerpt } from "../utils";
+
+/* ==========================================================================
+   插画场景版式 —— 给 layout: scene 的篇目用
+   一整屏剪纸做的风景当背景（固定不动），正文在上面往下滚。
+   全靠 CSS，不加一行 JS：往下读是个普通的 #read 锚点。
+   ========================================================================== */
+
+interface Props {
+  entry: CollectionEntry<"diary">;
+  prev?: CollectionEntry<"diary">;
+  next?: CollectionEntry<"diary">;
+}
+
+const { entry, prev, next } = Astro.props;
+const { title, date, weather, mood, tags, summary } = entry.data;
+const lede = summary ?? excerpt(entry.body, 140);
+---
+
+<BaseLayout title={title} description={lede} bodyClass="is-scene">
+  <!-- 背景：一层层剪出来的纸，纯装饰，读屏软件跳过 -->
+  <div class="stage" aria-hidden="true">
+    <div class="stage__sky"></div>
+    <div class="stage__sun"></div>
+
+    <div class="stage__cloud stage__cloud--1"></div>
+    <div class="stage__cloud stage__cloud--2"></div>
+    <div class="stage__cloud stage__cloud--3"></div>
+
+    <div class="stage__shard stage__shard--1"></div>
+    <div class="stage__shard stage__shard--2"></div>
+    <div class="stage__shard stage__shard--3"></div>
+
+    <div class="stage__hill stage__hill--far"></div>
+    <div class="stage__hill stage__hill--mid"></div>
+
+    <div class="stage__water">
+      <span class="stage__ripple"></span>
+      <span class="stage__ripple stage__ripple--2"></span>
+    </div>
+
+    <div class="stage__hill stage__hill--near"></div>
+
+    <div class="stage__fore">
+      <span class="leaf leaf--1"></span>
+      <span class="leaf leaf--2"></span>
+      <span class="leaf leaf--3"></span>
+      <span class="stone"></span>
+    </div>
+  </div>
+
+  <PaperNav />
+
+  <main id="main">
+    <section class="curtain">
+      <div class="plate">
+        <p class="plate__meta">
+          <time datetime={date.toISOString()}>{fmtDate(date)}</time>
+          {weather && <span class="plate__chip">{weather}</span>}
+          {mood && <span class="plate__chip">{mood}</span>}
+        </p>
+
+        <h1 class="plate__title" style={`view-transition-name:${tname(entry.id)}`}>
+          {title}
+        </h1>
+
+        {
+          tags.length > 0 && (
+            <p class="plate__tags">
+              {tags.map((t) => (
+                <span>#{t}</span>
+              ))}
+            </p>
+          )
+        }
+      </div>
+
+      <div class="talk">
+        <p class="talk__text">{lede}</p>
+        <a class="talk__next" href="#read">
+          <span aria-hidden="true">↓</span>
+          <span class="sr-only">往下读正文</span>
+        </a>
+      </div>
+    </section>
+
+    <section class="read" id="read">
+      <article class="read__sheet">
+        <div class="prose">
+          <slot />
+        </div>
+      </article>
+
+      <EntryFlip prev={prev} next={next} onScene />
+    </section>
+  </main>
+
+  <SiteFooter />
+</BaseLayout>
+
+<style is:global>
+  /* 场景页里，导航条和页脚都换成纸色的半透明，压在插画上才看得清 */
+  body.is-scene .topbar {
+    background: color-mix(in srgb, var(--paper) 62%, transparent);
+    border-bottom-color: color-mix(in srgb, var(--ink-900) 5%, transparent);
+  }
+
+  body.is-scene .foot {
+    margin-top: var(--space-16);
+    background: color-mix(in srgb, var(--paper) 72%, transparent);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-top-color: color-mix(in srgb, var(--ink-900) 6%, transparent);
+  }
+</style>
+
+<style>
+  /* ---------- 背景舞台：固定满屏，正文在它上面滚 ---------- */
+
+  .stage {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .stage__sky {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      178deg,
+      var(--scene-sky-top) 0%,
+      color-mix(in srgb, var(--scene-sky-top) 46%, var(--scene-sky-glow)) 30%,
+      var(--scene-sky-glow) 52%,
+      color-mix(in srgb, var(--scene-sky-glow) 74%, var(--clay-soft)) 100%
+    );
+  }
+
+  /* 低低的一轮太阳，只是一团光 */
+  .stage__sun {
+    position: absolute;
+    top: 26%;
+    right: 16%;
+    width: clamp(90px, 13vw, 190px);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: radial-gradient(
+      circle,
+      color-mix(in srgb, var(--paper) 92%, var(--clay-soft)) 0 42%,
+      color-mix(in srgb, var(--clay-soft) 78%, var(--paper)) 55%,
+      transparent 72%
+    );
+    filter: blur(1px);
+    animation: glow 9s var(--ease-in-out) infinite;
+  }
+
+  @keyframes glow {
+    0%,
+    100% {
+      opacity: 0.85;
+    }
+
+    50% {
+      opacity: 1;
+    }
+  }
+
+  /* ---------- 云：两块圆角纸片叠一下 ---------- */
+
+  .stage__cloud {
+    position: absolute;
+    height: 0.7em;
+    background: color-mix(in srgb, var(--paper) 88%, transparent);
+    border-radius: var(--radius-full);
+    box-shadow: 0 2px 6px rgb(46 38 28 / 6%);
+    animation: drift 34s var(--ease-in-out) infinite alternate;
+  }
+
+  .stage__cloud::after {
+    content: "";
+    position: absolute;
+    left: 24%;
+    bottom: 42%;
+    width: 46%;
+    height: 100%;
+    background: inherit;
+    border-radius: var(--radius-full);
+  }
+
+  .stage__cloud--1 {
+    top: 13%;
+    left: 8%;
+    width: clamp(88px, 13vw, 190px);
+    font-size: clamp(20px, 2.6vw, 34px);
+  }
+
+  .stage__cloud--2 {
+    top: 21%;
+    left: 52%;
+    width: clamp(60px, 9vw, 130px);
+    font-size: clamp(16px, 2vw, 26px);
+    opacity: 0.8;
+    animation-duration: 46s;
+    animation-delay: -12s;
+  }
+
+  .stage__cloud--3 {
+    top: 8%;
+    right: 6%;
+    width: clamp(50px, 7vw, 104px);
+    font-size: clamp(14px, 1.7vw, 22px);
+    opacity: 0.7;
+    animation-duration: 58s;
+    animation-direction: alternate-reverse;
+  }
+
+  @keyframes drift {
+    from {
+      transform: translateX(-14px);
+    }
+
+    to {
+      transform: translateX(26px);
+    }
+  }
+
+  /* ---------- 悬在空中的纸晶体（旧站是水晶，这里改成折过的纸） ---------- */
+
+  .stage__shard {
+    position: absolute;
+    clip-path: polygon(22% 0, 78% 0, 100% 24%, 100% 74%, 50% 100%, 0 74%, 0 24%);
+    background: linear-gradient(
+      152deg,
+      color-mix(in srgb, var(--indigo) 42%, var(--paper)) 0%,
+      color-mix(in srgb, var(--sage) 38%, var(--paper)) 100%
+    );
+    filter: drop-shadow(0 10px 18px rgb(46 38 28 / 14%));
+    animation: hover-up 7.5s var(--ease-in-out) infinite alternate;
+  }
+
+  /* 中间一道折痕 */
+  .stage__shard::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 34%;
+    width: 1px;
+    background: color-mix(in srgb, var(--paper) 55%, transparent);
+  }
+
+  .stage__shard--1 {
+    top: 24%;
+    left: 39%;
+    width: clamp(46px, 6.5vw, 96px);
+    height: clamp(120px, 17vw, 250px);
+  }
+
+  .stage__shard--2 {
+    top: 37%;
+    left: 55%;
+    width: clamp(26px, 3.6vw, 54px);
+    height: clamp(64px, 9vw, 130px);
+    opacity: 0.9;
+    animation-duration: 9.5s;
+    animation-delay: -3s;
+  }
+
+  .stage__shard--3 {
+    top: 31%;
+    left: 31%;
+    width: clamp(18px, 2.6vw, 38px);
+    height: clamp(44px, 6vw, 88px);
+    opacity: 0.75;
+    animation-duration: 11s;
+    animation-delay: -6s;
+  }
+
+  @keyframes hover-up {
+    from {
+      transform: translateY(9px) rotate(-1deg);
+    }
+
+    to {
+      transform: translateY(-13px) rotate(1.5deg);
+    }
+  }
+
+  /* ---------- 远山、近山、水面 ---------- */
+
+  .stage__hill {
+    position: absolute;
+    left: -2%;
+    right: -2%;
+    bottom: 0;
+    /* 负方向的投影，看起来像纸被一层层掀起来 */
+    filter: drop-shadow(0 -3px 7px rgb(46 38 28 / 11%));
+  }
+
+  .stage__hill--far {
+    height: 44%;
+    background: var(--scene-hill-far);
+    clip-path: polygon(
+      0 58%,
+      13% 38%,
+      27% 52%,
+      41% 26%,
+      54% 46%,
+      68% 30%,
+      82% 50%,
+      93% 37%,
+      100% 55%,
+      100% 100%,
+      0 100%
+    );
+  }
+
+  .stage__hill--mid {
+    height: 33%;
+    background: var(--scene-hill-mid);
+    clip-path: polygon(
+      0 62%,
+      16% 34%,
+      34% 56%,
+      50% 30%,
+      64% 52%,
+      80% 36%,
+      100% 60%,
+      100% 100%,
+      0 100%
+    );
+  }
+
+  /* 近处的岸：压在水面上，颜色最深 */
+  .stage__hill--near {
+    height: 17%;
+    background: var(--scene-hill-near);
+    clip-path: polygon(
+      0 44%,
+      9% 30%,
+      19% 46%,
+      27% 62%,
+      0 76%,
+      0 100%,
+      100% 100%,
+      100% 58%,
+      88% 44%,
+      76% 66%,
+      66% 84%
+    );
+    filter: drop-shadow(0 -4px 9px rgb(46 38 28 / 16%));
+  }
+
+  .stage__water {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 27%;
+    overflow: hidden;
+    background: linear-gradient(
+      180deg,
+      var(--scene-water-top) 0%,
+      var(--scene-water-low) 100%
+    );
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--paper) 45%, transparent);
+  }
+
+  /* 两道横的高光，就够意思了 */
+  .stage__ripple {
+    position: absolute;
+    left: 12%;
+    top: 34%;
+    width: 34%;
+    height: 2px;
+    border-radius: var(--radius-full);
+    background: color-mix(in srgb, var(--paper) 62%, transparent);
+    animation: sway 6.5s var(--ease-in-out) infinite alternate;
+  }
+
+  .stage__ripple--2 {
+    left: 56%;
+    top: 62%;
+    width: 26%;
+    opacity: 0.7;
+    animation-duration: 8.5s;
+    animation-delay: -2.5s;
+  }
+
+  @keyframes sway {
+    from {
+      transform: translateX(-10px) scaleX(0.94);
+    }
+
+    to {
+      transform: translateX(16px) scaleX(1.06);
+    }
+  }
+
+  /* ---------- 最前面的叶子和石头（剪影） ---------- */
+
+  .stage__fore {
+    position: absolute;
+    inset: 0;
+  }
+
+  .leaf {
+    position: absolute;
+    bottom: -4%;
+    background: color-mix(in srgb, var(--sage) 55%, var(--ink-900));
+    border-radius: 50% 50% 0 0;
+    filter: drop-shadow(0 -3px 8px rgb(46 38 28 / 18%));
+    transform-origin: 50% 100%;
+    animation: lean 12s var(--ease-in-out) infinite alternate;
+  }
+
+  .leaf--1 {
+    right: -3%;
+    width: clamp(90px, 13vw, 190px);
+    height: clamp(110px, 16vw, 230px);
+  }
+
+  .leaf--2 {
+    right: clamp(60px, 8vw, 130px);
+    width: clamp(60px, 8vw, 120px);
+    height: clamp(140px, 20vw, 290px);
+    background: color-mix(in srgb, var(--sage) 42%, var(--ink-900));
+    animation-duration: 15s;
+    animation-delay: -4s;
+  }
+
+  .leaf--3 {
+    left: -4%;
+    width: clamp(70px, 10vw, 150px);
+    height: clamp(80px, 11vw, 165px);
+    background: color-mix(in srgb, var(--sage) 50%, var(--ink-900));
+    animation-duration: 17s;
+    animation-direction: alternate-reverse;
+  }
+
+  .stone {
+    position: absolute;
+    left: 6%;
+    bottom: -3%;
+    width: clamp(120px, 17vw, 250px);
+    height: clamp(52px, 7vw, 105px);
+    border-radius: 46% 54% 0 0;
+    background: color-mix(in srgb, var(--ink-700) 72%, var(--desk-shade));
+    filter: drop-shadow(0 -3px 8px rgb(46 38 28 / 16%));
+  }
+
+  @keyframes lean {
+    from {
+      transform: rotate(-2deg);
+    }
+
+    to {
+      transform: rotate(2.5deg);
+    }
+  }
+
+  /* ==========================================================================
+     内容层
+     ========================================================================== */
+
+  main {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ---------- 第一屏：标题牌 + 底部对话框 ---------- */
+
+  .curtain {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-height: calc(100vh - 3.6rem);
+    padding: clamp(var(--space-8), 8vh, var(--space-24))
+      clamp(var(--space-4), 6vw, var(--space-16))
+      clamp(var(--space-6), 5vh, var(--space-12));
+  }
+
+  .plate {
+    max-width: min(100%, 34rem);
+    padding: clamp(var(--space-6), 4vw, var(--space-12));
+    background: color-mix(in srgb, var(--paper) 90%, transparent);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border: 1px solid color-mix(in srgb, var(--paper) 60%, transparent);
+    border-radius: var(--radius);
+    box-shadow: var(--lift-2);
+    transform: rotate(-1.1deg);
+    animation: rise 0.9s var(--ease-out) both;
+  }
+
+  .plate__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+    font-size: var(--text-xs);
+    letter-spacing: 0.1em;
+    color: var(--indigo);
+  }
+
+  .plate__chip {
+    padding: 1px 8px;
+    letter-spacing: normal;
+    color: var(--ink-500);
+    background: color-mix(in srgb, var(--sage) 16%, transparent);
+    border-radius: var(--radius-full);
+  }
+
+  .plate__title {
+    margin-top: var(--space-4);
+    font-family: var(--font-serif);
+    font-size: clamp(var(--text-2xl), 6vw, var(--text-4xl));
+    font-weight: 400;
+    line-height: 1.15;
+    letter-spacing: -0.015em;
+  }
+
+  .plate__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    margin-top: var(--space-5);
+    font-size: var(--text-xs);
+    color: var(--ink-400);
+  }
+
+  /* 底部对话框：旧站那个绘本式的框，换成纸色 */
+  .talk {
+    display: flex;
+    align-items: center;
+    gap: var(--space-6);
+    width: min(100%, 46rem);
+    margin-top: auto;
+    align-self: center;
+    padding: clamp(var(--space-4), 3vw, var(--space-8))
+      clamp(var(--space-5), 3vw, var(--space-8));
+    background: color-mix(in srgb, var(--paper) 86%, transparent);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid color-mix(in srgb, var(--paper) 55%, transparent);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--lift-2);
+    animation: rise 0.9s var(--ease-out) 0.15s both;
+  }
+
+  .talk__text {
+    flex: 1;
+    font-size: var(--text-base);
+    line-height: 1.8;
+    color: var(--ink-700);
+  }
+
+  .talk__next {
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 44px;
+    height: 44px;
+    font-size: var(--text-lg);
+    color: var(--ink-500);
+    text-decoration: none;
+    background: var(--paper);
+    border: 1px solid var(--ink-200);
+    border-radius: 50%;
+    transition: transform 0.3s var(--ease-spring), background-color 0.3s,
+      color 0.3s, border-color 0.3s;
+    animation: nudge 2.6s var(--ease-in-out) 1.6s infinite;
+  }
+
+  .talk__next:hover,
+  .talk__next:focus-visible {
+    color: var(--paper);
+    background: var(--clay);
+    border-color: var(--clay);
+    transform: translateY(3px);
+    animation: none;
+  }
+
+  @keyframes nudge {
+    0%,
+    72%,
+    100% {
+      transform: translateY(0);
+    }
+
+    82% {
+      transform: translateY(4px);
+    }
+  }
+
+  /* ---------- 第二屏起：正文 ---------- */
+
+  .read {
+    width: 100%;
+    max-width: calc(var(--measure) + 12rem);
+    margin-inline: auto;
+    padding: 0 clamp(var(--space-4), 5vw, var(--space-12))
+      clamp(var(--space-8), 6vh, var(--space-16));
+    /* 锚点跳过来时别贴着导航条 */
+    scroll-margin-top: 4rem;
+  }
+
+  .read__sheet {
+    padding: clamp(var(--space-8), 6vw, var(--space-16))
+      clamp(var(--space-6), 6vw, var(--space-16));
+    background: color-mix(in srgb, var(--paper) 94%, transparent);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid color-mix(in srgb, var(--paper) 60%, transparent);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--lift-3);
+  }
+
+  .read__sheet .prose {
+    margin-inline: auto;
+  }
+
+  /* ---------- 窄屏 ---------- */
+
+  @media (max-width: 40rem) {
+    .stage__cloud--2,
+    .stage__shard--3 {
+      display: none;
+    }
+
+    .plate {
+      transform: none;
+    }
+
+    .talk {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--space-4);
+    }
+
+    .talk__next {
+      align-self: flex-end;
+    }
+  }
+
+  /* ---------- 关掉动效：整幕静止，但一切照常可读 ---------- */
+
+  @media (prefers-reduced-motion: reduce) {
+    .stage__sun,
+    .stage__cloud,
+    .stage__shard,
+    .stage__ripple,
+    .leaf,
+    .talk__next {
+      animation: none;
+    }
+  }
+</style>
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,64 @@
+---
+import { ClientRouter } from "astro:transitions";
+import { site } from "../config";
+import "../styles/global.css";
+
+interface Props {
+  /** 浏览器标签页标题（不含站名后缀） */
+  title?: string;
+  /** 给搜索引擎和分享卡片看的一句话 */
+  description?: string;
+  /** 额外的 body class，比如首页的 is-desk */
+  bodyClass?: string;
+}
+
+const { title, description = site.tagline, bodyClass = "" } = Astro.props;
+const fullTitle = title ? `${title} · ${site.titleSuffix}` : site.name;
+---
+
+<!doctype html>
+<html lang={site.lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <meta name="generator" content={Astro.generator} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta name="theme-color" content="#ded6c9" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:site_name" content={site.name} />
+
+    <!-- 跨页面的平滑转场：列表卡片会"长成"文章标题 -->
+    <ClientRouter />
+  </head>
+
+  <body class={bodyClass}>
+    <a class="skip-link" href="#main">跳到正文</a>
+    <slot />
+  </body>
+</html>
+
+<style>
+  /* 键盘用户按第一次 Tab 时才出现的跳转链接 */
+  .skip-link {
+    position: fixed;
+    top: var(--space-4);
+    left: var(--space-4);
+    z-index: 10000;
+    padding: var(--space-2) var(--space-4);
+    background: var(--paper);
+    border-radius: var(--radius);
+    box-shadow: var(--lift-2);
+    text-decoration: none;
+    transform: translateY(-200%);
+    transition: transform 0.2s var(--ease-out);
+  }
+
+  .skip-link:focus {
+    transform: none;
+  }
+</style>
