@@ -19,11 +19,17 @@ interface Props {
 }
 
 const { entry, prev, next } = Astro.props;
-const { title, date, weather, mood, tags, summary } = entry.data;
+const { title, date, weather, mood, tags, summary, cover } = entry.data;
 const lede = summary ?? excerpt(entry.body, 140);
 ---
 
-<BaseLayout title={title} description={lede} bodyClass="is-scene">
+<BaseLayout
+  title={title}
+  description={lede}
+  bodyClass="is-scene"
+  ogType="article"
+  ogImage={cover?.src}
+>
   <!-- 背景：一层层剪出来的纸，纯装饰，读屏软件跳过 -->
   <div class="stage" aria-hidden="true">
     <div class="stage__sky"></div>

@@ -17,7 +17,12 @@ const { entry, prev, next } = Astro.props;
 const { title, date, weather, mood, tags, cover, summary } = entry.data;
 ---
 
-<BaseLayout title={title} description={summary ?? excerpt(entry.body, 120)}>
+<BaseLayout
+  title={title}
+  description={summary ?? excerpt(entry.body, 120)}
+  ogType="article"
+  ogImage={cover?.src}
+>
   <PaperNav />
 
   <main id="main" class="shell shell--narrow">

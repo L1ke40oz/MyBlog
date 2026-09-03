@@ -10,10 +10,29 @@ interface Props {
   description?: string;
   /** 额外的 body class，比如首页的 is-desk */
   bodyClass?: string;
+  /** 分享卡片的配图，站内路径即可（比如日记的封面）。不给就用 /og.jpg */
+  ogImage?: string;
+  /** 日记详情页传 "article"，其余页面用默认的 "website" */
+  ogType?: "website" | "article";
 }
 
-const { title, description = site.tagline, bodyClass = "" } = Astro.props;
+const {
+  title,
+  description = site.tagline,
+  bodyClass = "",
+  ogImage,
+  ogType = "website",
+} = Astro.props;
 const fullTitle = title ? `${title} · ${site.titleSuffix}` : site.name;
+
+/* 分享卡片和 SEO 要的是完整网址，域名来自 astro.config.mjs 的 SITE_URL。
+   Astro.site 没配的话 new URL 会抛错，所以留个兜底：没有域名就不输出这几个标签。 */
+const canonical = Astro.site
+  ? new URL(Astro.url.pathname, Astro.site).href
+  : undefined;
+const ogImageUrl = Astro.site
+  ? new URL(ogImage ?? "/og.jpg", Astro.site).href
+  : undefined;
 ---
 
 <!doctype html>
@@ -26,11 +45,15 @@ const fullTitle = title ? `${title} · ${site.titleSuffix}` : site.name;
     <meta name="generator" content={Astro.generator} />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <meta name="theme-color" content="#ded6c9" />
+    {canonical && <link rel="canonical" href={canonical} />}
 
-    <meta property="og:type" content="website" />
+    <meta property="og:type" content={ogType} />
     <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={description} />
     <meta property="og:site_name" content={site.name} />
+    {canonical && <meta property="og:url" content={canonical} />}
+    {ogImageUrl && <meta property="og:image" content={ogImageUrl} />}
+    {ogImageUrl && <meta name="twitter:card" content="summary_large_image" />}
 
     <!-- 跨页面的平滑转场：列表卡片会"长成"文章标题 -->
     <ClientRouter />
