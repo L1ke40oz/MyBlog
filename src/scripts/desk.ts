@@ -159,7 +159,6 @@ export function initDesk() {
     }
 
     plane.classList.remove("is-settling");
-    desk.setPointerCapture(e.pointerId);
   });
 
   desk.addEventListener("pointermove", (e: PointerEvent) => {
@@ -175,6 +174,20 @@ export function initDesk() {
     lastY = e.clientY;
 
     if (moved < DRAG_THRESHOLD) return;
+
+    /* 到这里才抓住指针。不能在 pointerdown 里就抓 —— 一旦 desk 拿到指针捕获，
+       浏览器连之后的 click 也一并算在 desk 身上，而不是真正被按的那个元素。
+       于是 closest("a[data-obj]") 找不到链接，浏览器自己的跳转也不会发生，
+       结果就是桌上所有东西在鼠标上「点了没反应」（触屏走的是窄屏分支，所以没事）。 */
+    if (!desk.hasPointerCapture(e.pointerId)) {
+      try {
+        desk.setPointerCapture(e.pointerId);
+      } catch {
+        /* 指针已经松开了（快速一甩时 up 可能比这次 move 先处理完）。
+           抓不到就算了，拖动照旧，只是移出窗口后会跟丢。 */
+      }
+    }
+
     dismissHint();
 
     if (mode === "obj" && dragged) {
@@ -188,6 +201,7 @@ export function initDesk() {
   });
 
   const endDrag = () => {
+    if (mode === "none") return;
     const wasDrag = moved >= DRAG_THRESHOLD;
 
     if (mode === "obj" && dragged) {
@@ -219,6 +233,12 @@ export function initDesk() {
 
   desk.addEventListener("pointerup", endDrag);
   desk.addEventListener("pointercancel", endDrag);
+
+  /* 没到阈值就没有指针捕获，这时候把手松在 desk 外面（窗口边缘、地址栏上），
+     desk 自己收不到 pointerup —— 兜一层，别让 mode 卡在拖拽状态。
+     endDrag 开头有 mode === "none" 的短路，重复触发不会有副作用。 */
+  addEventListener("pointerup", endDrag, { signal: ac.signal });
+  addEventListener("pointercancel", endDrag, { signal: ac.signal });
 
   /* 拖完那一下的 click 要拦在最前面吃掉 */
   desk.addEventListener(
