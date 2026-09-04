@@ -35,10 +35,14 @@ permissions:
   contents: read # 只需要读代码，不给多余权限
 
 env:
-  # 1Panel 里这个网站的根目录，跟 nginx 配置里的 root 必须一模一样。
-  # （注意是 /www/sites/... 而不是 /opt/1panel/www/sites/...，1Panel 的版本不同会不一样，
-  #   以「网站 → 点进这个站 → 配置文件」里那行 root 为准。）
-  DEPLOY_PATH: /www/sites/blog.luminestella.top/index
+  # 这里要填**宿主机上的真实路径** —— SSH 登进服务器 ls 能看到的那个，
+  # 而不是 nginx 配置里那行 root。1Panel 的 OpenResty 跑在容器里，
+  # 容器内的 /www 挂的是宿主机的 /opt/1panel/www，所以两边写法本来就不一样：
+  #   nginx（容器内看到的）：/www/sites/blog.luminestella.top/index
+  #   rsync（宿主机上真实的）：/opt/1panel/www/sites/blog.luminestella.top/index
+  # 换域名、或者 1Panel 装在别的目录，用这条命令核对真实路径：
+  #   find / -maxdepth 7 -type d -path '*www/sites/blog.luminestella.top*'
+  DEPLOY_PATH: /opt/1panel/www/sites/blog.luminestella.top/index
 
 jobs:
   deploy:
@@ -187,8 +191,10 @@ jobs:
           # rsync 不会帮你创建目标目录的父目录，先确认它在。
           if ! $SSH "$TARGET" "test -d '${DEPLOY_PATH}'"; then
             echo "::error::能登录，但服务器上没有 ${DEPLOY_PATH} 这个目录。"
-            echo "::error::先在 1Panel 里把这个网站建出来；已经建了的话，去「网站 → 配置文件」核对那行 root，"
-            echo "::error::再把本文件 env 里的 DEPLOY_PATH 改成跟它一致。"
+            echo "::error::别照抄 nginx 配置里那行 root —— OpenResty 在容器里，它看到的 /www"
+            echo "::error::是宿主机的 /opt/1panel/www 挂进去的，rsync 要的是宿主机那一侧的路径。"
+            echo "::error::登上服务器跑这条命令，看真实路径是哪个，再改本文件 env 里的 DEPLOY_PATH："
+            echo "::error::  find / -maxdepth 7 -type d -path '*www/sites/*'"
             exit 1
           fi
 
